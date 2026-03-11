@@ -1,0 +1,186 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ────────────────────────────────────────────────────────────────────
+
+enum UserRole {
+  FAN
+  ORGANIZER
+  ADMIN
+}
+
+enum ShowStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum SubmissionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum SourceType {
+  MANUAL
+  SUBMITTED
+  IMPORTED
+}
+
+// ─── Models ───────────────────────────────────────────────────────────────────
+
+model User {
+  id         String     @id @default(cuid())
+  name       String?
+  email      String     @unique
+  role       UserRole   @default(FAN)
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  savedShows SavedShow[]
+  reports    ShowReport[]
+}
+
+model Organizer {
+  id           String   @id @default(cuid())
+  name         String
+  email        String?
+  websiteUrl   String?
+  facebookUrl  String?
+  instagramUrl String?
+  verified     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  shows        Show[]
+}
+
+model Venue {
+  id          String   @id @default(cuid())
+  name        String
+  address1    String
+  address2    String?
+  city        String
+  state       String   // 2-letter state code e.g. "TX"
+  postalCode  String?
+  latitude    Float?
+  longitude   Float?
+  parkingInfo String?
+  loadInInfo  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  shows       Show[]
+
+  @@index([state])
+  @@index([city, state])
+}
+
+model Show {
+  id                  String     @id @default(cuid())
+  title               String
+  slug                String     @unique
+  description         String?
+  status              ShowStatus @default(PENDING)
+  sourceType          SourceType @default(SUBMITTED)
+  timezone            String     @default("America/Chicago")
+  startDate           DateTime
+  endDate             DateTime
+  startTimeLabel      String?    // e.g. "9:00 AM"
+  endTimeLabel        String?    // e.g. "4:00 PM"
+  city                String
+  state               String     // 2-letter code
+  isFree              Boolean    @default(false)
+  admissionPrice      String?
+  admissionNotes      String?
+  tableCount          Int?
+  estimatedAttendance Int?
+  flyerImageUrl       String?
+  websiteUrl          String?
+  facebookUrl         String?
+  ticketUrl           String?
+  parkingInfo         String?
+  loadInInfo          String?
+  venueNotes          String?
+  categories          String[]
+  lastVerifiedAt      DateTime?
+  expiresAt           DateTime?
+  viewCount           Int        @default(0)
+  favoriteCount       Int        @default(0)
+  featuredRank        Int?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  organizerId         String?
+  venueId             String?
+
+  organizer Organizer? @relation(fields: [organizerId], references: [id])
+  venue     Venue?     @relation(fields: [venueId], references: [id])
+  savedBy   SavedShow[]
+  reports   ShowReport[]
+  tags      ShowTag[]
+
+  @@index([state, status, startDate])
+  @@index([city, state, status])
+  @@index([slug])
+  @@index([startDate, status])
+  @@index([status, featuredRank])
+}
+
+model SavedShow {
+  id        String   @id @default(cuid())
+  userId    String
+  showId    String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  show Show @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, showId])
+}
+
+model ShowSubmission {
+  id             String           @id @default(cuid())
+  submitterName  String
+  submitterEmail String
+  payloadJson    Json
+  status         SubmissionStatus @default(PENDING)
+  notes          String?
+  reviewedShowId String?          // linked Show id after approval
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+}
+
+model ShowReport {
+  id        String   @id @default(cuid())
+  showId    String
+  userId    String?
+  reason    String
+  details   String?
+  createdAt DateTime @default(now())
+
+  show Show  @relation(fields: [showId], references: [id], onDelete: Cascade)
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model ShowTag {
+  id     String @id @default(cuid())
+  showId String
+  label  String
+
+  show Show @relation(fields: [showId], references: [id], onDelete: Cascade)
+
+  @@unique([showId, label])
+  @@index([label])
+}
+
+// State directory table — seeded once, drives /card-shows/[state] pages
+model State {
+  id       String  @id // 2-letter code: "TX", "CA", etc.
+  name     String
+  slug     String  @unique // "texas", "california", etc.
+  seoBlurb String? // short intro paragraph for state pages
+}
