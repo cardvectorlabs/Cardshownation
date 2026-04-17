@@ -8,18 +8,20 @@
   }
 
   body {
-    @apply bg-slate-50 text-slate-900 antialiased;
+    @apply bg-slate-50 text-slate-950;
+  }
+
+  ::selection {
+    @apply bg-brand-200 text-slate-950;
   }
 }
 
 @layer utilities {
-  /* Wide layout: max 1280px, padded */
   .container-wide {
     @apply mx-auto w-full max-w-screen-xl px-4 sm:px-6 lg:px-8;
   }
 
-  /* Narrow layout: max 720px, padded */
   .container-narrow {
-    @apply mx-auto w-full max-w-2xl px-4 sm:px-6;
+    @apply mx-auto w-full max-w-3xl px-4 sm:px-6;
   }
 }

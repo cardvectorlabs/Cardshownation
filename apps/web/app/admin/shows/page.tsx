@@ -1,8 +1,10 @@
 import Link from "next/link";
-import { db } from "@/lib/db";
+import { getAdminShows } from "@/lib/shows";
 import { formatShowDate } from "@/lib/utils";
 
 type SearchParams = { status?: string; stale?: string; page?: string };
+
+export const dynamic = "force-dynamic";
 
 export default async function AdminShowsPage({
   searchParams,
@@ -10,33 +12,19 @@ export default async function AdminShowsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const sp = await searchParams;
-  const page = Math.max(1, parseInt(sp.page ?? "1"));
+  const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const limit = 30;
   const offset = (page - 1) * limit;
   const staleDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
 
-  const where: any = {};
-  if (sp.status) where.status = sp.status;
-  if (sp.stale === "1") {
-    where.status = "APPROVED";
-    where.OR = [{ lastVerifiedAt: null }, { lastVerifiedAt: { lt: staleDate } }];
-  }
+  const { shows, total } = await getAdminShows({
+    status: sp.status,
+    stale: sp.stale === "1",
+    limit,
+    offset,
+  });
 
-  const [shows, total] = await Promise.all([
-    db.show.findMany({
-      where,
-      orderBy: { createdAt: "desc" },
-      take: limit,
-      skip: offset,
-      select: {
-        id: true, title: true, status: true, city: true, state: true,
-        startDate: true, endDate: true, lastVerifiedAt: true, slug: true,
-      },
-    }),
-    db.show.count({ where }),
-  ]);
-
-  const totalPages = Math.ceil(total / limit);
+  const totalPages = Math.max(1, Math.ceil(total / limit));
 
   const statusFilters = [
     { label: "All", href: "/admin/shows" },
@@ -48,64 +36,83 @@ export default async function AdminShowsPage({
 
   return (
     <div className="p-6 lg:p-10">
-      <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 flex items-center justify-between">
         <h1 className="text-2xl font-bold text-slate-900">
           Shows
-          <span className="ml-2 text-base font-normal text-slate-400">({total.toLocaleString()})</span>
+          <span className="ml-2 text-base font-normal text-slate-400">
+            ({total.toLocaleString()})
+          </span>
         </h1>
       </div>
 
-      {/* Status tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap">
-        {statusFilters.map((f: any) => {
+      <div className="mb-6 flex flex-wrap gap-2">
+        {statusFilters.map((filter) => {
           const isActive =
-            f.href === "/admin/shows"
+            filter.href === "/admin/shows"
               ? !sp.status && !sp.stale
-              : f.href.includes("stale")
-              ? sp.stale === "1"
-              : sp.status === new URLSearchParams(f.href.split("?")[1]).get("status");
+              : filter.href.includes("stale")
+                ? sp.stale === "1"
+                : sp.status ===
+                  new URLSearchParams(filter.href.split("?")[1]).get("status");
+
           return (
             <Link
-              key={f.href}
-              href={f.href}
+              key={filter.href}
+              href={filter.href}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-brand-600 text-white"
                   : "border border-slate-200 text-slate-600 hover:border-brand-300 hover:text-brand-700"
               }`}
             >
-              {f.label}
+              {filter.label}
             </Link>
           );
         })}
       </div>
 
-      {/* Table */}
-      <div className="rounded-xl border border-slate-200 overflow-hidden bg-white">
+      <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-slate-100 bg-slate-50">
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Show</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden md:table-cell">Date</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider hidden lg:table-cell">Last Verified</th>
-              <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wider">Status</th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Show
+              </th>
+              <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 md:table-cell">
+                Date
+              </th>
+              <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 lg:table-cell">
+                Last Verified
+              </th>
+              <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
+                Status
+              </th>
               <th className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {shows.map((show: any) => {
-              const isStale = show.status === "APPROVED" &&
+              const isStale =
+                show.status === "APPROVED" &&
                 (!show.lastVerifiedAt || show.lastVerifiedAt < staleDate);
+
               return (
-                <tr key={show.id} className={`hover:bg-slate-50 transition-colors ${isStale ? "bg-orange-50/40" : ""}`}>
+                <tr
+                  key={show.id}
+                  className={`transition-colors hover:bg-slate-50 ${
+                    isStale ? "bg-orange-50/40" : ""
+                  }`}
+                >
                   <td className="px-4 py-3">
-                    <p className="font-medium text-slate-900 leading-snug">{show.title}</p>
-                    <p className="text-xs text-slate-400">{show.city}, {show.state}</p>
+                    <p className="leading-snug text-slate-900">{show.title}</p>
+                    <p className="text-xs text-slate-400">
+                      {show.city}, {show.state}
+                    </p>
                   </td>
-                  <td className="px-4 py-3 text-slate-500 text-xs hidden md:table-cell">
+                  <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">
                     {formatShowDate(show.startDate, show.endDate)}
                   </td>
-                  <td className="px-4 py-3 hidden lg:table-cell">
+                  <td className="hidden px-4 py-3 lg:table-cell">
                     {show.lastVerifiedAt ? (
                       <span className="text-xs text-slate-500">
                         {new Date(show.lastVerifiedAt).toLocaleDateString()}
@@ -119,12 +126,17 @@ export default async function AdminShowsPage({
                   </td>
                   <td className="px-4 py-3 text-right">
                     <div className="flex items-center justify-end gap-3">
-                      <Link href={`/shows/${show.slug}`} target="_blank"
-                        className="text-xs text-slate-400 hover:text-slate-600 transition-colors">
+                      <Link
+                        href={`/shows/${show.slug}`}
+                        target="_blank"
+                        className="text-xs text-slate-400 transition-colors hover:text-slate-600"
+                      >
                         View ↗
                       </Link>
-                      <Link href={`/admin/shows/${show.id}`}
-                        className="text-sm text-brand-600 font-medium hover:underline">
+                      <Link
+                        href={`/admin/shows/${show.id}`}
+                        className="text-sm font-medium text-brand-600 hover:underline"
+                      >
                         Edit
                       </Link>
                     </div>
@@ -134,27 +146,37 @@ export default async function AdminShowsPage({
             })}
           </tbody>
         </table>
+
         {shows.length === 0 && (
-          <div className="py-16 text-center text-sm text-slate-400">No shows found.</div>
+          <div className="py-16 text-center text-sm text-slate-400">
+            No shows found.
+          </div>
         )}
       </div>
 
-      {/* Pagination */}
       {totalPages > 1 && (
         <div className="mt-6 flex items-center justify-center gap-2">
           {page > 1 && (
             <Link
-              href={`/admin/shows?${new URLSearchParams({ ...sp, page: String(page - 1) })}`}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              href={`/admin/shows?${new URLSearchParams({
+                ...sp,
+                page: String(page - 1),
+              })}`}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
               ← Previous
             </Link>
           )}
-          <span className="text-sm text-slate-500">Page {page} of {totalPages}</span>
+          <span className="text-sm text-slate-500">
+            Page {page} of {totalPages}
+          </span>
           {page < totalPages && (
             <Link
-              href={`/admin/shows?${new URLSearchParams({ ...sp, page: String(page + 1) })}`}
-              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
+              href={`/admin/shows?${new URLSearchParams({
+                ...sp,
+                page: String(page + 1),
+              })}`}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
               Next →
             </Link>
@@ -166,19 +188,27 @@ export default async function AdminShowsPage({
 }
 
 function StatusBadge({ status, stale }: { status: string; stale: boolean }) {
-  if (stale) return (
-    <span className="inline-flex items-center rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-medium text-orange-600">
-      Stale
-    </span>
-  );
+  if (stale) {
+    return (
+      <span className="inline-flex items-center rounded-full bg-orange-50 px-2.5 py-0.5 text-xs font-medium text-orange-600">
+        Stale
+      </span>
+    );
+  }
+
   const styles: Record<string, string> = {
     APPROVED: "bg-green-50 text-green-700",
     PENDING: "bg-yellow-50 text-yellow-700",
     REJECTED: "bg-red-50 text-red-600",
     EXPIRED: "bg-slate-100 text-slate-500",
   };
+
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${styles[status] ?? "bg-slate-100 text-slate-600"}`}>
+    <span
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${
+        styles[status] ?? "bg-slate-100 text-slate-600"
+      }`}
+    >
       {status.charAt(0) + status.slice(1).toLowerCase()}
     </span>
   );

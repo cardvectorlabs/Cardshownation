@@ -1,193 +1,317 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { MapPin, Search, ArrowRight, Calendar, TrendingUp } from "lucide-react";
 import {
-  getThisWeekendShows,
-  getRecentlyAddedShows,
-} from "@/lib/shows";
+  ArrowRight,
+  CalendarDays,
+  MapPin,
+  Search,
+  ShieldCheck,
+  Store,
+  Trophy,
+} from "lucide-react";
 import { ShowCard } from "@/components/shows/show-card";
+import { getHomepageDirectoryStats, getFeaturedShows, getUpcomingShows } from "@/lib/shows";
+import { CORE_MARKET_CODES, getStatesByCodes } from "@/lib/states";
 
 export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Card Show Nation — Find Card Shows Near You",
+  title: "Card Show Nation | Find Upcoming Card Shows",
   description:
-    "Discover upcoming sports card shows, Pokémon events, TCG tournaments, and collectible shows nationwide. Search by state, city, or date.",
+    "Discover upcoming sports card, Pokemon, and TCG shows by state, city, and date. Card Show Nation starts in the Midwest and is built to scale nationally.",
 };
 
-const POPULAR_STATES = [
-  { name: "Texas", slug: "texas", code: "TX" },
-  { name: "California", slug: "california", code: "CA" },
-  { name: "Florida", slug: "florida", code: "FL" },
-  { name: "Ohio", slug: "ohio", code: "OH" },
-  { name: "Illinois", slug: "illinois", code: "IL" },
-  { name: "Pennsylvania", slug: "pennsylvania", code: "PA" },
-  { name: "Georgia", slug: "georgia", code: "GA" },
-  { name: "Tennessee", slug: "tennessee", code: "TN" },
-  { name: "Missouri", slug: "missouri", code: "MO" },
-  { name: "North Carolina", slug: "north-carolina", code: "NC" },
-  { name: "Kansas", slug: "kansas", code: "KS" },
-  { name: "Oklahoma", slug: "oklahoma", code: "OK" },
+const launchStates = getStatesByCodes(CORE_MARKET_CODES);
+
+const valueProps = [
+  {
+    icon: Search,
+    title: "Built for collectors",
+    description:
+      "Scan upcoming shows fast by state, city, and weekend instead of hunting through scattered social posts.",
+  },
+  {
+    icon: Store,
+    title: "Useful for promoters",
+    description:
+      "Every listing has room for admission, venue, vendor, and organizer details so the page works as a real event profile.",
+  },
+  {
+    icon: ShieldCheck,
+    title: "Simple to maintain",
+    description:
+      "The MVP uses a clean Prisma-backed event model that can later accept imports from a Google Sheet or a lightweight admin CMS.",
+  },
 ];
 
 export default async function HomePage() {
-  const [weekendShows, recentShows] = await Promise.all([
-    getThisWeekendShows(6),
-    getRecentlyAddedShows(6),
+  const [featuredShows, upcomingShows, stats] = await Promise.all([
+    getFeaturedShows(4),
+    getUpcomingShows({ limit: 6 }),
+    getHomepageDirectoryStats(),
   ]);
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Card Show Nation",
+    url: "https://cardshownation.com",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: "https://cardshownation.com/card-shows?q={search_term_string}",
+      "query-input": "required name=search_term_string",
+    },
+  };
 
   return (
     <>
-      {/* ── HERO ─────────────────────────────────────────── */}
-      <section className="relative bg-gradient-to-b from-brand-950 to-brand-800 text-white overflow-hidden">
-        <div
-          className="absolute inset-0 opacity-10"
-          style={{
-            backgroundImage: `radial-gradient(circle at 25% 50%, rgba(255,255,255,0.15) 0%, transparent 60%),
-                              radial-gradient(circle at 75% 20%, rgba(255,255,255,0.1) 0%, transparent 50%)`,
-          }}
-        />
-        <div className="container-wide relative py-20 md:py-28 text-center">
-          <p className="text-brand-300 text-sm font-semibold uppercase tracking-widest mb-4">
-            National Directory
-          </p>
-          <h1 className="text-4xl md:text-6xl font-bold tracking-tight leading-tight">
-            Find Card Shows
-            <span className="block text-brand-300">Near You</span>
-          </h1>
-          <p className="mt-6 text-lg text-brand-200 max-w-xl mx-auto">
-            Discover upcoming sports card shows, Pokémon events, and TCG
-            tournaments across all 50 states.
-          </p>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
-          {/* Search */}
-          <form action="/card-shows" method="GET" className="mt-10 max-w-xl mx-auto">
-            <div className="flex gap-2 rounded-xl bg-white/10 border border-white/20 p-1.5 backdrop-blur">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-white/50" />
-                <input
-                  type="text"
-                  name="q"
-                  placeholder="Search by city, state, or show name..."
-                  className="w-full bg-transparent pl-9 pr-4 py-2.5 text-white placeholder-white/50 text-sm focus:outline-none"
-                />
+      <section className="overflow-hidden bg-slate-950 text-white">
+        <div className="container-wide relative py-16 sm:py-20">
+          <div
+            aria-hidden="true"
+            className="absolute inset-y-0 right-[-12rem] hidden w-[28rem] rounded-full bg-brand-500/20 blur-3xl md:block"
+          />
+
+          <div className="relative grid gap-10 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.22em] text-brand-300">
+                Midwest first, national ready
+              </p>
+              <h1 className="mt-4 max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+                Find the next card show worth your weekend.
+              </h1>
+              <p className="mt-5 max-w-2xl text-base leading-7 text-slate-300 sm:text-lg">
+                Card Show Nation is a card show directory for collectors,
+                vendors, and organizers. The launch focus is Kansas, Missouri,
+                Oklahoma, Nebraska, Iowa, and Illinois, with a structure that
+                can scale into a national show discovery platform.
+              </p>
+
+              <form action="/card-shows" method="GET" className="mt-8 max-w-2xl">
+                <div className="flex flex-col gap-3 rounded-3xl border border-white/10 bg-white/5 p-3 shadow-2xl backdrop-blur sm:flex-row">
+                  <div className="relative flex-1">
+                    <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                    <input
+                      type="text"
+                      name="q"
+                      placeholder="Search by show name, city, venue, or organizer"
+                      className="w-full rounded-2xl border border-white/10 bg-slate-900/80 py-3 pl-11 pr-4 text-sm text-white placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center rounded-2xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-400"
+                  >
+                    Search shows
+                  </button>
+                </div>
+              </form>
+
+              <div className="mt-6 flex flex-wrap gap-3">
+                <Link
+                  href="/card-shows"
+                  className="inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
+                >
+                  Browse all upcoming shows
+                  <ArrowRight className="h-4 w-4" />
+                </Link>
+                <Link
+                  href="/submit-show"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                >
+                  Submit a show
+                </Link>
               </div>
-              <button
-                type="submit"
-                className="rounded-lg bg-brand-500 hover:bg-brand-400 px-5 py-2.5 text-sm font-semibold text-white transition-colors"
-              >
-                Search
-              </button>
             </div>
-          </form>
 
-          {/* Quick state pills */}
-          <div className="mt-8 flex flex-wrap justify-center gap-2">
-            {POPULAR_STATES.slice(0, 6).map((state) => (
-              <Link
-                key={state.slug}
-                href={`/card-shows/${state.slug}`}
-                className="rounded-full border border-white/20 bg-white/10 px-3 py-1.5 text-xs font-medium text-white/80 hover:bg-white/20 hover:text-white transition-colors"
-              >
-                {state.name}
-              </Link>
-            ))}
+            <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+                <p className="text-sm text-slate-400">Upcoming shows</p>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {stats.upcomingShows}
+                </p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+                <p className="text-sm text-slate-400">Active states</p>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {stats.activeStates}
+                </p>
+              </div>
+              <div className="rounded-3xl border border-white/10 bg-white/5 p-5 backdrop-blur">
+                <p className="text-sm text-slate-400">Promoters listed</p>
+                <p className="mt-2 text-3xl font-semibold text-white">
+                  {stats.activeOrganizers}
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ── THIS WEEKEND ─────────────────────────────────── */}
-      {weekendShows.length > 0 && (
-        <section className="container-wide mt-16">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <Calendar className="h-5 w-5 text-brand-500" />
-              <h2 className="text-xl font-bold text-slate-900">This Weekend</h2>
-            </div>
-            <Link
-              href="/card-shows"
-              className="text-sm font-medium text-brand-600 hover:underline flex items-center gap-1"
-            >
-              View all <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {weekendShows.map((show: any) => (
-              <ShowCard key={show.id} show={show} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── BROWSE BY STATE ──────────────────────────────── */}
-      <section className="container-wide mt-16">
-        <div className="flex items-center justify-between mb-6">
-          <div className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-brand-500" />
-            <h2 className="text-xl font-bold text-slate-900">Browse by State</h2>
+      <section className="container-wide py-14 sm:py-16">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
+              Launch states
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              Browse the core Midwest footprint
+            </h2>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-slate-600 sm:text-base">
+              Start with the states collectors around Kansas Card Show already
+              travel between, then expand outward without rebuilding the site
+              structure.
+            </p>
           </div>
           <Link
             href="/card-shows"
-            className="text-sm font-medium text-brand-600 hover:underline flex items-center gap-1"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
           >
-            All states <ArrowRight className="h-3.5 w-3.5" />
+            View the full directory
+            <ArrowRight className="h-4 w-4" />
           </Link>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3">
-          {POPULAR_STATES.map((state) => (
+
+        <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          {launchStates.map((state) => (
             <Link
-              key={state.slug}
+              key={state.code}
               href={`/card-shows/${state.slug}`}
-              className="rounded-lg border border-slate-200 bg-white px-4 py-3 text-center hover:border-brand-300 hover:bg-brand-50 transition-all group"
+              className="rounded-3xl border border-slate-200 bg-white px-4 py-4 transition-all hover:border-brand-200 hover:bg-brand-50"
             >
-              <div className="text-2xl font-bold text-slate-300 group-hover:text-brand-200 transition-colors">
+              <p className="text-sm font-semibold text-slate-950">{state.name}</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.2em] text-slate-500">
                 {state.code}
-              </div>
-              <div className="text-xs font-medium text-slate-600 mt-0.5 group-hover:text-brand-700 transition-colors">
-                {state.name}
-              </div>
+              </p>
             </Link>
           ))}
         </div>
       </section>
 
-      {/* ── RECENTLY ADDED ───────────────────────────────── */}
-      {recentShows.length > 0 && (
-        <section className="container-wide mt-16">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-2">
-              <TrendingUp className="h-5 w-5 text-brand-500" />
-              <h2 className="text-xl font-bold text-slate-900">Recently Added</h2>
-            </div>
-            <Link
-              href="/card-shows"
-              className="text-sm font-medium text-brand-600 hover:underline flex items-center gap-1"
-            >
-              Browse all <ArrowRight className="h-3.5 w-3.5" />
-            </Link>
+      <section className="container-wide pb-14 sm:pb-16">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
+              Featured shows
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              Upcoming card shows to spotlight
+            </h2>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {recentShows.map((show: any) => (
-              <ShowCard key={show.id} show={show} />
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* ── SUBMIT CTA ───────────────────────────────────── */}
-      <section className="container-wide mt-20 mb-16">
-        <div className="rounded-2xl bg-gradient-to-r from-brand-600 to-brand-800 px-8 py-12 text-center text-white">
-          <h2 className="text-2xl font-bold">Organizing a Card Show?</h2>
-          <p className="mt-3 text-brand-200 max-w-md mx-auto">
-            Submit your show and reach collectors across the country. Listings
-            are reviewed and go live within 24 hours.
+          <p className="max-w-xl text-sm leading-6 text-slate-600">
+            These are the events getting front-of-site placement. This is where
+            premium listings, sponsorships, and promoter visibility can expand later.
           </p>
+        </div>
+
+        <div className="mt-8 grid gap-4 lg:grid-cols-2">
+          {featuredShows.map((show) => (
+            <ShowCard key={show.id} show={show} />
+          ))}
+        </div>
+      </section>
+
+      <section className="container-wide pb-14 sm:pb-16">
+        <div className="grid gap-5 lg:grid-cols-3">
+          {valueProps.map((item) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={item.title}
+                className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm"
+              >
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-brand-50 text-brand-700">
+                  <Icon className="h-5 w-5" />
+                </div>
+                <h3 className="mt-5 text-xl font-semibold text-slate-950">
+                  {item.title}
+                </h3>
+                <p className="mt-3 text-sm leading-6 text-slate-600">
+                  {item.description}
+                </p>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="container-wide pb-14 sm:pb-16">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
+              Coming up
+            </p>
+            <h2 className="mt-2 text-3xl font-semibold tracking-tight text-slate-950">
+              More upcoming shows in the directory
+            </h2>
+          </div>
           <Link
-            href="/submit-show"
-            className="mt-6 inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 text-sm font-semibold text-brand-700 hover:bg-brand-50 transition-colors"
+            href="/card-shows"
+            className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
           >
-            Submit Your Show <ArrowRight className="h-4 w-4" />
+            Browse every listing
+            <ArrowRight className="h-4 w-4" />
           </Link>
+        </div>
+
+        <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+          {upcomingShows.shows.map((show) => (
+            <ShowCard key={show.id} show={show} />
+          ))}
+        </div>
+      </section>
+
+      <section className="container-wide pb-16">
+        <div className="rounded-[2rem] bg-slate-950 px-6 py-10 text-white sm:px-10">
+          <div className="grid gap-8 lg:grid-cols-[1.2fr_0.8fr] lg:items-center">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-300">
+                For promoters
+              </p>
+              <h2 className="mt-2 text-3xl font-semibold tracking-tight">
+                Get your show in front of collectors planning their weekends.
+              </h2>
+              <p className="mt-4 max-w-2xl text-sm leading-6 text-slate-300 sm:text-base">
+                The MVP keeps the submission flow simple now and leaves space for
+                organizer profiles, premium listings, dashboards, and event tools later.
+              </p>
+            </div>
+
+            <div className="grid gap-3 rounded-3xl border border-white/10 bg-white/5 p-5">
+              <div className="flex items-start gap-3">
+                <CalendarDays className="mt-0.5 h-5 w-5 text-brand-300" />
+                <p className="text-sm text-slate-200">
+                  Publish core event details once and keep a clean source of truth.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <MapPin className="mt-0.5 h-5 w-5 text-brand-300" />
+                <p className="text-sm text-slate-200">
+                  Reach local collectors searching by state, metro, and venue.
+                </p>
+              </div>
+              <div className="flex items-start gap-3">
+                <Trophy className="mt-0.5 h-5 w-5 text-brand-300" />
+                <p className="text-sm text-slate-200">
+                  Reserve room for featured placement, sponsorships, and future organizer tools.
+                </p>
+              </div>
+
+              <Link
+                href="/submit-show"
+                className="mt-2 inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
+              >
+                Submit a show
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
         </div>
       </section>
     </>

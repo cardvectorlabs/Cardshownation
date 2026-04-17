@@ -1,80 +1,77 @@
 import Link from "next/link";
 import { MapPin } from "lucide-react";
+import { HOMEPAGE_STATE_CODES, getStatesByCodes } from "@/lib/states";
 
-const STATES_GRID = [
-  ["Texas", "texas"], ["California", "california"], ["Florida", "florida"],
-  ["Ohio", "ohio"], ["Illinois", "illinois"], ["Pennsylvania", "pennsylvania"],
-  ["Georgia", "georgia"], ["Tennessee", "tennessee"], ["Missouri", "missouri"],
-  ["North Carolina", "north-carolina"], ["Kansas", "kansas"], ["Oklahoma", "oklahoma"],
-];
+const featuredStates = getStatesByCodes(HOMEPAGE_STATE_CODES);
 
 export function Footer() {
   return (
-    <footer className="border-t border-slate-200 bg-white mt-16">
+    <footer className="mt-16 border-t border-slate-200 bg-white">
       <div className="container-wide py-12">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-          {/* Brand */}
-          <div className="md:col-span-1">
-            <Link href="/" className="flex items-center gap-2 mb-3">
-              <div className="flex h-7 w-7 items-center justify-center rounded-md bg-brand-600">
-                <MapPin className="h-3.5 w-3.5 text-white" />
+        <div className="grid gap-10 lg:grid-cols-[1.1fr_1fr_1fr]">
+          <div>
+            <Link href="/" className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white">
+                <MapPin className="h-4 w-4" />
               </div>
-              <span className="font-bold text-slate-900">
-                Card Show Nation
-              </span>
+              <div>
+                <p className="text-base font-semibold text-slate-950">
+                  Card Show Nation
+                </p>
+                <p className="text-sm text-slate-500">
+                  Discovery first. Organizer tools next.
+                </p>
+              </div>
             </Link>
-            <p className="text-sm text-slate-500 leading-relaxed">
-              The national directory for sports card shows, Pokémon events, and
-              TCG tournaments across all 50 states.
+
+            <p className="mt-4 max-w-md text-sm leading-6 text-slate-600">
+              Card Show Nation helps collectors find upcoming sports card,
+              Pokemon, and TCG shows by state, city, and date while giving
+              promoters a clean path to get listed.
             </p>
-            <div className="mt-4 flex flex-col gap-1.5 text-sm">
-              <Link
-                href="/submit-show"
-                className="text-brand-600 hover:underline font-medium"
-              >
-                Submit a Show →
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-slate-950">Explore</p>
+            <div className="mt-4 flex flex-col gap-2 text-sm text-slate-600">
+              <Link href="/card-shows" className="transition-colors hover:text-brand-700">
+                Browse all shows
               </Link>
-              <Link
-                href="/card-shows"
-                className="text-slate-500 hover:text-brand-600 transition-colors"
-              >
-                Browse All Shows
+              <Link href="/submit-show" className="transition-colors hover:text-brand-700">
+                Submit a show
+              </Link>
+              <Link href="/card-shows/kansas" className="transition-colors hover:text-brand-700">
+                Kansas card shows
+              </Link>
+              <Link href="/card-shows/missouri" className="transition-colors hover:text-brand-700">
+                Missouri card shows
               </Link>
             </div>
           </div>
 
-          {/* Popular states */}
-          <div className="md:col-span-3">
-            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-4">
-              Browse by State
-            </p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-4 gap-y-1.5">
-              {STATES_GRID.map(([name, slug]) => (
+          <div>
+            <p className="text-sm font-semibold text-slate-950">Launch States</p>
+            <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600">
+              {featuredStates.map((state) => (
                 <Link
-                  key={slug}
-                  href={`/card-shows/${slug}`}
-                  className="text-sm text-slate-500 hover:text-brand-600 transition-colors"
+                  key={state.code}
+                  href={`/card-shows/${state.slug}`}
+                  className="transition-colors hover:text-brand-700"
                 >
-                  {name}
+                  {state.name}
                 </Link>
               ))}
-              <Link
-                href="/card-shows"
-                className="text-sm text-brand-500 hover:text-brand-700 font-medium"
-              >
-                All 50 States →
-              </Link>
             </div>
           </div>
         </div>
 
-        <div className="mt-10 border-t border-slate-100 pt-6 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-slate-400">
+        <div className="mt-10 flex flex-col gap-2 border-t border-slate-100 pt-6 text-xs text-slate-500 sm:flex-row sm:items-center sm:justify-between">
           <p>© {new Date().getFullYear()} Card Show Nation. All rights reserved.</p>
           <div className="flex items-center gap-4">
-            <Link href="/submit-show" className="hover:text-slate-600 transition-colors">
-              Submit a Show
+            <Link href="/submit-show" className="transition-colors hover:text-slate-800">
+              Submit a show
             </Link>
-            <Link href="/admin" className="hover:text-slate-600 transition-colors">
+            <Link href="/admin" className="transition-colors hover:text-slate-800">
               Admin
             </Link>
           </div>

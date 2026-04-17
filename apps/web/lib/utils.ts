@@ -1,12 +1,13 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
+import { US_STATES } from "@/lib/states";
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function slugify(str: string): string {
-  return str
+export function slugify(value: string): string {
+  return value
     .toLowerCase()
     .trim()
     .replace(/[^\w\s-]/g, "")
@@ -18,7 +19,7 @@ export function formatShowDate(startDate: Date, endDate: Date): string {
   const start = new Date(startDate);
   const end = new Date(endDate);
 
-  const opts: Intl.DateTimeFormatOptions = {
+  const fullDateOptions: Intl.DateTimeFormatOptions = {
     month: "short",
     day: "numeric",
     year: "numeric",
@@ -29,20 +30,31 @@ export function formatShowDate(startDate: Date, endDate: Date): string {
     start.getMonth() === end.getMonth() &&
     start.getDate() === end.getDate()
   ) {
-    // Same day
-    return start.toLocaleDateString("en-US", opts);
+    return start.toLocaleDateString("en-US", fullDateOptions);
   }
 
   if (
     start.getFullYear() === end.getFullYear() &&
     start.getMonth() === end.getMonth()
   ) {
-    // Same month: "Apr 5–6, 2026"
-    return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })}–${end.toLocaleDateString("en-US", { day: "numeric", year: "numeric" })}`;
+    const startLabel = start.toLocaleDateString("en-US", {
+      month: "short",
+      day: "numeric",
+    });
+    const endLabel = end.toLocaleDateString("en-US", {
+      day: "numeric",
+      year: "numeric",
+    });
+
+    return `${startLabel}-${endLabel}`;
   }
 
-  // Different months
-  return `${start.toLocaleDateString("en-US", { month: "short", day: "numeric" })} – ${end.toLocaleDateString("en-US", opts)}`;
+  const startLabel = start.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+  });
+
+  return `${startLabel} - ${end.toLocaleDateString("en-US", fullDateOptions)}`;
 }
 
 export function formatShortDate(date: Date): string {
@@ -53,47 +65,63 @@ export function formatShortDate(date: Date): string {
   });
 }
 
-// Converts a state 2-letter code to its slug
-const STATE_SLUG_MAP: Record<string, string> = {
-  AL: "alabama", AK: "alaska", AZ: "arizona", AR: "arkansas",
-  CA: "california", CO: "colorado", CT: "connecticut", DE: "delaware",
-  FL: "florida", GA: "georgia", HI: "hawaii", ID: "idaho",
-  IL: "illinois", IN: "indiana", IA: "iowa", KS: "kansas",
-  KY: "kentucky", LA: "louisiana", ME: "maine", MD: "maryland",
-  MA: "massachusetts", MI: "michigan", MN: "minnesota", MS: "mississippi",
-  MO: "missouri", MT: "montana", NE: "nebraska", NV: "nevada",
-  NH: "new-hampshire", NJ: "new-jersey", NM: "new-mexico", NY: "new-york",
-  NC: "north-carolina", ND: "north-dakota", OH: "ohio", OK: "oklahoma",
-  OR: "oregon", PA: "pennsylvania", RI: "rhode-island", SC: "south-carolina",
-  SD: "south-dakota", TN: "tennessee", TX: "texas", UT: "utah",
-  VT: "vermont", VA: "virginia", WA: "washington", WV: "west-virginia",
-  WI: "wisconsin", WY: "wyoming",
-};
+export function getDateBadge(startDate: Date, endDate: Date) {
+  const start = new Date(startDate);
+  const end = new Date(endDate);
+
+  const month = start.toLocaleDateString("en-US", { month: "short" }).toUpperCase();
+  const weekday = start.toLocaleDateString("en-US", { weekday: "short" });
+
+  let dayLabel = String(start.getDate());
+
+  if (
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth() &&
+    start.getDate() !== end.getDate()
+  ) {
+    dayLabel = `${start.getDate()}-${end.getDate()}`;
+  } else if (
+    start.getFullYear() !== end.getFullYear() ||
+    start.getMonth() !== end.getMonth()
+  ) {
+    dayLabel = `${start.getDate()}+`;
+  }
+
+  return {
+    month,
+    weekday,
+    dayLabel,
+  };
+}
 
 export function stateCodeToSlug(code: string): string {
-  return STATE_SLUG_MAP[code.toUpperCase()] ?? code.toLowerCase();
+  return (
+    US_STATES.find((state) => state.code === code.toUpperCase())?.slug ??
+    code.toLowerCase()
+  );
 }
 
 export function stateSlugToCode(slug: string): string | null {
-  const entry = Object.entries(STATE_SLUG_MAP).find(([, s]) => s === slug);
-  return entry ? entry[0] : null;
+  return US_STATES.find((state) => state.slug === slug.toLowerCase())?.code ?? null;
 }
 
-// Returns "This Saturday", "This Sunday", "Apr 5", etc.
 export function humanizeShowDate(startDate: Date): string {
-  const now = new Date();
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
   const start = new Date(startDate);
+  start.setHours(0, 0, 0, 0);
 
   const diffDays = Math.round(
-    (start.setHours(0, 0, 0, 0) - now.setHours(0, 0, 0, 0)) /
-      (1000 * 60 * 60 * 24)
+    (start.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
   );
 
   if (diffDays === 0) return "Today";
   if (diffDays === 1) return "Tomorrow";
-  if (diffDays <= 7) {
-    const day = new Date(startDate).toLocaleDateString("en-US", { weekday: "long" });
-    return `This ${day}`;
+  if (diffDays > 1 && diffDays <= 7) {
+    return `This ${new Date(startDate).toLocaleDateString("en-US", {
+      weekday: "long",
+    })}`;
   }
 
   return new Date(startDate).toLocaleDateString("en-US", {
@@ -109,10 +137,13 @@ export function generateShowSlug(
   startDate: Date
 ): string {
   const date = new Date(startDate);
-  const monthYear = date.toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-  }).toLowerCase().replace(" ", "-");
+  const monthYear = date
+    .toLocaleDateString("en-US", {
+      month: "long",
+      year: "numeric",
+    })
+    .toLowerCase()
+    .replace(" ", "-");
 
   return `${slugify(title)}-${slugify(city)}-${state.toLowerCase()}-${monthYear}`;
 }

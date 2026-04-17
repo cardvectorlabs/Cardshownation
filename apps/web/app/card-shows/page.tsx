@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { getUpcomingShows, SHOW_CATEGORIES } from "@/lib/shows";
+import { ArrowRight, Search } from "lucide-react";
 import { ShowCard } from "@/components/shows/show-card";
+import { SHOW_CATEGORIES, getUpcomingShows } from "@/lib/shows";
+import { US_STATES, getStateByCode } from "@/lib/states";
 
 export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Browse Card Shows Nationwide",
+  title: "Browse Card Shows",
   description:
-    "Search and filter upcoming sports card shows, Pokémon events, and TCG tournaments across all 50 states.",
+    "Browse upcoming card shows by state, city, venue, and category. Card Show Nation is built for collectors, vendors, and promoters.",
 };
 
 type SearchParams = {
@@ -20,58 +23,19 @@ type SearchParams = {
   page?: string;
 };
 
-const US_STATES = [
-  { code: "AL", name: "Alabama", slug: "alabama" },
-  { code: "AK", name: "Alaska", slug: "alaska" },
-  { code: "AZ", name: "Arizona", slug: "arizona" },
-  { code: "AR", name: "Arkansas", slug: "arkansas" },
-  { code: "CA", name: "California", slug: "california" },
-  { code: "CO", name: "Colorado", slug: "colorado" },
-  { code: "CT", name: "Connecticut", slug: "connecticut" },
-  { code: "DE", name: "Delaware", slug: "delaware" },
-  { code: "FL", name: "Florida", slug: "florida" },
-  { code: "GA", name: "Georgia", slug: "georgia" },
-  { code: "HI", name: "Hawaii", slug: "hawaii" },
-  { code: "ID", name: "Idaho", slug: "idaho" },
-  { code: "IL", name: "Illinois", slug: "illinois" },
-  { code: "IN", name: "Indiana", slug: "indiana" },
-  { code: "IA", name: "Iowa", slug: "iowa" },
-  { code: "KS", name: "Kansas", slug: "kansas" },
-  { code: "KY", name: "Kentucky", slug: "kentucky" },
-  { code: "LA", name: "Louisiana", slug: "louisiana" },
-  { code: "ME", name: "Maine", slug: "maine" },
-  { code: "MD", name: "Maryland", slug: "maryland" },
-  { code: "MA", name: "Massachusetts", slug: "massachusetts" },
-  { code: "MI", name: "Michigan", slug: "michigan" },
-  { code: "MN", name: "Minnesota", slug: "minnesota" },
-  { code: "MS", name: "Mississippi", slug: "mississippi" },
-  { code: "MO", name: "Missouri", slug: "missouri" },
-  { code: "MT", name: "Montana", slug: "montana" },
-  { code: "NE", name: "Nebraska", slug: "nebraska" },
-  { code: "NV", name: "Nevada", slug: "nevada" },
-  { code: "NH", name: "New Hampshire", slug: "new-hampshire" },
-  { code: "NJ", name: "New Jersey", slug: "new-jersey" },
-  { code: "NM", name: "New Mexico", slug: "new-mexico" },
-  { code: "NY", name: "New York", slug: "new-york" },
-  { code: "NC", name: "North Carolina", slug: "north-carolina" },
-  { code: "ND", name: "North Dakota", slug: "north-dakota" },
-  { code: "OH", name: "Ohio", slug: "ohio" },
-  { code: "OK", name: "Oklahoma", slug: "oklahoma" },
-  { code: "OR", name: "Oregon", slug: "oregon" },
-  { code: "PA", name: "Pennsylvania", slug: "pennsylvania" },
-  { code: "RI", name: "Rhode Island", slug: "rhode-island" },
-  { code: "SC", name: "South Carolina", slug: "south-carolina" },
-  { code: "SD", name: "South Dakota", slug: "south-dakota" },
-  { code: "TN", name: "Tennessee", slug: "tennessee" },
-  { code: "TX", name: "Texas", slug: "texas" },
-  { code: "UT", name: "Utah", slug: "utah" },
-  { code: "VT", name: "Vermont", slug: "vermont" },
-  { code: "VA", name: "Virginia", slug: "virginia" },
-  { code: "WA", name: "Washington", slug: "washington" },
-  { code: "WV", name: "West Virginia", slug: "west-virginia" },
-  { code: "WI", name: "Wisconsin", slug: "wisconsin" },
-  { code: "WY", name: "Wyoming", slug: "wyoming" },
-];
+function buildQuery(
+  current: SearchParams,
+  overrides: Partial<Record<keyof SearchParams, string | undefined>>
+) {
+  const params = new URLSearchParams();
+  const merged = { ...current, ...overrides };
+
+  Object.entries(merged).forEach(([key, value]) => {
+    if (value) params.set(key, value);
+  });
+
+  return params.toString();
+}
 
 export default async function CardShowsPage({
   searchParams,
@@ -79,8 +43,8 @@ export default async function CardShowsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const sp = await searchParams;
-  const page = Math.max(1, parseInt(sp.page ?? "1"));
-  const limit = 24;
+  const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
+  const limit = 18;
   const offset = (page - 1) * limit;
 
   const { shows, total } = await getUpcomingShows({
@@ -93,191 +57,187 @@ export default async function CardShowsPage({
     offset,
   });
 
-  const totalPages = Math.ceil(total / limit);
-  const hasFilters = !!(
-    sp.state ||
-    sp.city ||
-    sp.category ||
-    sp.free ||
-    sp.q
-  );
-
-  const stateName = US_STATES.find((s) => s.code === sp.state)?.name;
+  const totalPages = Math.max(1, Math.ceil(total / limit));
+  const hasFilters = Boolean(sp.state || sp.city || sp.category || sp.free || sp.q);
+  const stateName = getStateByCode(sp.state)?.name;
 
   return (
     <div className="container-wide py-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-slate-900">
-          {stateName
-            ? `Card Shows in ${stateName}`
-            : "Browse Card Shows Nationwide"}
-        </h1>
-        <p className="mt-2 text-slate-500">
-          {total.toLocaleString()} upcoming show{total !== 1 ? "s" : ""} found
+      <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+        <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
+          Show directory
         </p>
-      </div>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+          {stateName ? `${stateName} card shows` : "Browse upcoming card shows"}
+        </h1>
+        <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+          Search by show name, city, promoter, or venue. State pages carry the
+          strongest SEO value, while this directory page handles broader
+          filtering and discovery.
+        </p>
 
-      <div className="flex flex-col lg:flex-row gap-8">
-        {/* ── Filters sidebar ── */}
-        <aside className="lg:w-56 shrink-0">
-          <div className="sticky top-20 space-y-6">
-            {hasFilters && (
-              <Link
-                href="/card-shows"
-                className="block text-sm text-brand-600 font-medium hover:underline"
-              >
-                ← Clear filters
-              </Link>
-            )}
-
-            {/* Search */}
-            <form method="GET" action="/card-shows">
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                Search
-              </label>
-              <div className="flex gap-1">
-                <input
-                  type="text"
-                  name="q"
-                  defaultValue={sp.q ?? ""}
-                  placeholder="City or show name..."
-                  className="flex-1 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-                />
-                {sp.state && (
-                  <input type="hidden" name="state" value={sp.state} />
-                )}
-                <button
-                  type="submit"
-                  className="rounded-lg bg-brand-600 px-3 text-white hover:bg-brand-700 transition-colors"
-                >
-                  →
-                </button>
-              </div>
-            </form>
-
-            {/* State */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                State
-              </label>
-              <div className="space-y-0.5 max-h-52 overflow-y-auto pr-1">
-                {US_STATES.map((s: any) => (
-                  <Link
-                    key={s.code}
-                    href={`/card-shows/${s.slug}`}
-                    className={`block rounded px-2 py-1 text-sm transition-colors ${
-                      sp.state === s.code
-                        ? "bg-brand-100 text-brand-700 font-medium"
-                        : "text-slate-500 hover:text-brand-600 hover:bg-brand-50"
-                    }`}
-                  >
-                    {s.name}
-                  </Link>
-                ))}
-              </div>
-            </div>
-
-            {/* Category */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                Category
-              </label>
-              <div className="space-y-1">
-                {SHOW_CATEGORIES.map((cat: any) => {
-                  const isActive = sp.category === cat;
-                  const params = new URLSearchParams();
-                  if (sp.state) params.set("state", sp.state);
-                  if (sp.free) params.set("free", sp.free);
-                  if (!isActive) params.set("category", cat);
-                  return (
-                    <Link
-                      key={cat}
-                      href={`/card-shows?${params}`}
-                      className={`block rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                        isActive
-                          ? "bg-brand-100 text-brand-700 font-medium"
-                          : "text-slate-600 hover:bg-slate-100"
-                      }`}
-                    >
-                      {cat}
-                    </Link>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Free only */}
-            <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2">
-                Admission
-              </label>
-              <Link
-                href={
-                  sp.free === "1"
-                    ? "/card-shows"
-                    : `/card-shows?free=1${sp.state ? `&state=${sp.state}` : ""}`
-                }
-                className={`block rounded-lg px-3 py-1.5 text-sm transition-colors ${
-                  sp.free === "1"
-                    ? "bg-green-100 text-green-700 font-medium"
-                    : "text-slate-600 hover:bg-slate-100"
-                }`}
-              >
-                Free admission only
-              </Link>
-            </div>
+        <form action="/card-shows" method="GET" className="mt-6 grid gap-3 lg:grid-cols-[1.6fr_1fr_1fr_auto]">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="text"
+              name="q"
+              defaultValue={sp.q ?? ""}
+              placeholder="Search by show, city, venue, or promoter"
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 pl-11 text-sm text-slate-900 placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
+            />
           </div>
-        </aside>
 
-        {/* ── Results ── */}
-        <div className="flex-1 min-w-0">
-          {shows.length === 0 ? (
-            <div className="rounded-xl border border-slate-200 bg-slate-50 py-16 text-center">
-              <p className="text-slate-500">No shows found.</p>
-              {hasFilters && (
-                <Link
-                  href="/card-shows"
-                  className="mt-3 inline-block text-sm text-brand-600 font-medium hover:underline"
-                >
-                  Clear filters
-                </Link>
-              )}
+          <select
+            name="state"
+            defaultValue={sp.state ?? ""}
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
+          >
+            <option value="">All states</option>
+            {US_STATES.map((state) => (
+              <option key={state.code} value={state.code}>
+                {state.name}
+              </option>
+            ))}
+          </select>
+
+          <select
+            name="category"
+            defaultValue={sp.category ?? ""}
+            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
+          >
+            <option value="">All categories</option>
+            {SHOW_CATEGORIES.map((category) => (
+              <option key={category} value={category}>
+                {category}
+              </option>
+            ))}
+          </select>
+
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-2xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+          >
+            Search
+          </button>
+
+          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
+            <input
+              type="checkbox"
+              name="free"
+              value="1"
+              defaultChecked={sp.free === "1"}
+              className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+            />
+            Free admission only
+          </label>
+        </form>
+
+        {hasFilters && (
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <span className="text-slate-500">Filters active</span>
+            <Link
+              href="/card-shows"
+              className="font-semibold text-brand-700 transition-colors hover:text-brand-800"
+            >
+              Clear filters
+            </Link>
+          </div>
+        )}
+      </section>
+
+      {!hasFilters && (
+        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h2 className="text-xl font-semibold text-slate-950">
+                Jump to a state page
+              </h2>
+              <p className="mt-2 text-sm text-slate-600">
+                State pages are the best entry point for SEO and for collectors
+                planning a local trip.
+              </p>
             </div>
-          ) : (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
-                {shows.map((show: any) => (
-                  <ShowCard key={show.id} show={show} />
-                ))}
-              </div>
+            <Link
+              href="/submit-show"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
+            >
+              Submit a show
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
 
-              {totalPages > 1 && (
-                <div className="mt-10 flex items-center justify-center gap-2">
-                  {page > 1 && (
-                    <Link
-                      href={`/card-shows?${new URLSearchParams({ ...sp, page: String(page - 1) })}`}
-                      className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      ← Previous
-                    </Link>
-                  )}
-                  <span className="text-sm text-slate-500">
-                    Page {page} of {totalPages}
-                  </span>
-                  {page < totalPages && (
-                    <Link
-                      href={`/card-shows?${new URLSearchParams({ ...sp, page: String(page + 1) })}`}
-                      className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
-                    >
-                      Next →
-                    </Link>
-                  )}
-                </div>
-              )}
-            </>
+          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            {US_STATES.map((state) => (
+              <Link
+                key={state.code}
+                href={`/card-shows/${state.slug}`}
+                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+              >
+                {state.name}
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      <section className="mt-10">
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-950">
+              {total.toLocaleString()} upcoming show{total === 1 ? "" : "s"}
+            </h2>
+            <p className="mt-2 text-sm text-slate-600">
+              {stateName
+                ? `Current results for ${stateName}.`
+                : "Results across the current Card Show Nation directory."}
+            </p>
+          </div>
+        </div>
+
+        {shows.length === 0 ? (
+          <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10 text-center">
+            <p className="text-lg font-semibold text-slate-900">
+              No shows match those filters.
+            </p>
+            <p className="mt-3 text-sm leading-6 text-slate-600">
+              Try broadening the search, removing a category, or browsing a state page.
+            </p>
+          </div>
+        ) : (
+          <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            {shows.map((show) => (
+              <ShowCard key={show.id} show={show} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      {totalPages > 1 && (
+        <div className="mt-10 flex items-center justify-center gap-3">
+          {page > 1 && (
+            <Link
+              href={`/card-shows?${buildQuery(sp, { page: String(page - 1) })}`}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Previous
+            </Link>
+          )}
+
+          <span className="text-sm text-slate-500">
+            Page {page} of {totalPages}
+          </span>
+
+          {page < totalPages && (
+            <Link
+              href={`/card-shows?${buildQuery(sp, { page: String(page + 1) })}`}
+              className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Next
+            </Link>
           )}
         </div>
-      </div>
+      )}
     </div>
   );
 }

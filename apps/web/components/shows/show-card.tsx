@@ -1,87 +1,102 @@
 import Link from "next/link";
-import { Calendar, MapPin, Tag } from "lucide-react";
-import { formatShowDate } from "@/lib/utils";
-import type { ShowCard } from "@/types";
+import { ArrowRight, Clock, MapPin, Ticket, Users } from "lucide-react";
+import { getStateByCode } from "@/lib/states";
+import { formatShowDate, getDateBadge } from "@/lib/utils";
+import type { ShowCard as ShowCardData } from "@/types";
 
-export function ShowCard({ show }: { show: ShowCard }) {
-  const dateLabel = formatShowDate(show.startDate, show.endDate);
+export function ShowCard({ show }: { show: ShowCardData }) {
+  const badge = getDateBadge(show.startDate, show.endDate);
+  const stateName = getStateByCode(show.state)?.name ?? show.state;
+  const admissionLabel = show.isFree
+    ? "Free admission"
+    : show.admissionPrice ?? "Paid admission";
+  const vendorLabel =
+    show.vendorDetails ??
+    (show.tableCount ? `${show.tableCount.toLocaleString()} tables` : null);
 
   return (
     <Link
       href={`/shows/${show.slug}`}
-      className="group flex flex-col rounded-xl border border-slate-200 bg-white hover:border-brand-300 hover:shadow-md transition-all overflow-hidden"
+      className="group flex h-full flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-lg"
     >
-      {/* Flyer image or placeholder */}
-      {show.flyerImageUrl ? (
-        <div className="h-36 overflow-hidden bg-slate-100">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={show.flyerImageUrl}
-            alt={`${show.title} flyer`}
-            className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-300"
-          />
-        </div>
-      ) : (
-        <div className="h-2 bg-gradient-to-r from-brand-500 to-brand-700" />
-      )}
-
-      <div className="flex flex-col gap-2.5 p-4 flex-1">
-        {/* Title */}
-        <h3 className="font-semibold text-slate-900 leading-snug group-hover:text-brand-700 transition-colors line-clamp-2">
-          {show.title}
-        </h3>
-
-        {/* Date */}
-        <div className="flex items-center gap-1.5 text-sm text-slate-500">
-          <Calendar className="h-3.5 w-3.5 shrink-0 text-brand-400" />
-          <span>{dateLabel}</span>
-          {show.startTimeLabel && (
-            <span className="text-slate-400">· {show.startTimeLabel}</span>
-          )}
-        </div>
-
-        {/* Location */}
-        <div className="flex items-center gap-1.5 text-sm text-slate-500">
-          <MapPin className="h-3.5 w-3.5 shrink-0 text-brand-400" />
-          <span>
-            {show.city}, {show.state}
+      <div className="flex gap-4">
+        <div className="flex w-16 shrink-0 flex-col items-center rounded-2xl border border-brand-100 bg-brand-50 px-2 py-3 text-center">
+          <span className="text-[11px] font-semibold tracking-[0.18em] text-brand-700">
+            {badge.month}
           </span>
-          {show.venue && (
-            <span className="text-slate-400 truncate">· {show.venue.name}</span>
-          )}
+          <span className="mt-1 text-lg font-bold leading-none text-slate-950">
+            {badge.dayLabel}
+          </span>
+          <span className="mt-1 text-[11px] text-slate-500">{badge.weekday}</span>
         </div>
 
-        {/* Footer: categories + admission */}
-        <div className="mt-auto flex items-center justify-between pt-2 gap-2">
-          {/* Category chips */}
-          <div className="flex flex-wrap gap-1 min-w-0">
-            {show.categories.slice(0, 2).map((cat) => (
-              <span
-                key={cat}
-                className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-600"
-              >
-                <Tag className="h-2.5 w-2.5" />
-                {cat}
-              </span>
-            ))}
-            {show.categories.length > 2 && (
-              <span className="text-xs text-slate-400">
-                +{show.categories.length - 2}
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            {show.featuredRank !== null && (
+              <span className="rounded-full bg-amber-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-amber-700">
+                Featured
               </span>
             )}
+            {show.categories.slice(0, 2).map((category) => (
+              <span
+                key={category}
+                className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-600"
+              >
+                {category}
+              </span>
+            ))}
           </div>
 
-          {/* Admission */}
-          <span
-            className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-              show.isFree
-                ? "bg-green-50 text-green-700"
-                : "bg-slate-100 text-slate-600"
-            }`}
-          >
-            {show.isFree ? "Free" : show.admissionPrice ?? "Paid"}
-          </span>
+          <h3 className="mt-3 text-lg font-semibold leading-tight text-slate-950 transition-colors group-hover:text-brand-700">
+            {show.title}
+          </h3>
+
+          <p className="mt-2 text-sm text-slate-600">
+            {formatShowDate(show.startDate, show.endDate)}
+          </p>
+
+          <div className="mt-3 space-y-2 text-sm text-slate-600">
+            <div className="flex items-start gap-2">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
+              <div>
+                <p className="font-medium text-slate-800">
+                  {show.city}, {stateName}
+                </p>
+                {show.venue && <p>{show.venue.name}</p>}
+              </div>
+            </div>
+
+            {show.startTimeLabel && (
+              <div className="flex items-center gap-2">
+                <Clock className="h-4 w-4 shrink-0 text-brand-600" />
+                <span>
+                  {show.startTimeLabel}
+                  {show.endTimeLabel ? ` - ${show.endTimeLabel}` : ""}
+                </span>
+              </div>
+            )}
+
+            <div className="flex items-center gap-2">
+              <Ticket className="h-4 w-4 shrink-0 text-brand-600" />
+              <span>{admissionLabel}</span>
+            </div>
+
+            {vendorLabel && (
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 shrink-0 text-brand-600" />
+                <span>{vendorLabel}</span>
+              </div>
+            )}
+          </div>
         </div>
+      </div>
+
+      <div className="mt-4 flex items-center justify-between border-t border-slate-100 pt-4 text-sm">
+        <span className="font-medium text-slate-500">View full details</span>
+        <span className="inline-flex items-center gap-1 font-semibold text-brand-700">
+          Open
+          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </span>
       </div>
     </Link>
   );

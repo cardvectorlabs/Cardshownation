@@ -1,103 +1,148 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { isFixtureMode } from "@/lib/data-mode";
+import { updateFixtureShow } from "@/lib/fixture-store";
+import { getAdminShowById } from "@/lib/shows";
 import { formatShowDate } from "@/lib/utils";
 
 type Props = { params: Promise<{ id: string }> };
 
-// Server actions for approve/reject/mark-verified
+export const dynamic = "force-dynamic";
+
 async function approveShow(showId: string) {
   "use server";
-  await db.show.update({
-    where: { id: showId },
-    data: { status: "APPROVED", lastVerifiedAt: new Date() },
-  });
+
+  if (isFixtureMode()) {
+    await updateFixtureShow(showId, {
+      status: "APPROVED",
+      lastVerifiedAt: new Date(),
+    });
+  } else {
+    await db.show.update({
+      where: { id: showId },
+      data: { status: "APPROVED", lastVerifiedAt: new Date() },
+    });
+  }
+
   redirect("/admin/shows");
 }
 
 async function rejectShow(showId: string) {
   "use server";
-  await db.show.update({
-    where: { id: showId },
-    data: { status: "REJECTED" },
-  });
+
+  if (isFixtureMode()) {
+    await updateFixtureShow(showId, {
+      status: "REJECTED",
+    });
+  } else {
+    await db.show.update({
+      where: { id: showId },
+      data: { status: "REJECTED" },
+    });
+  }
+
   redirect("/admin/shows");
 }
 
 async function markVerified(showId: string) {
   "use server";
-  await db.show.update({
-    where: { id: showId },
-    data: { lastVerifiedAt: new Date() },
-  });
+
+  if (isFixtureMode()) {
+    await updateFixtureShow(showId, {
+      lastVerifiedAt: new Date(),
+    });
+  } else {
+    await db.show.update({
+      where: { id: showId },
+      data: { lastVerifiedAt: new Date() },
+    });
+  }
+
   redirect(`/admin/shows/${showId}`);
 }
 
 export default async function AdminShowDetailPage({ params }: Props) {
   const { id } = await params;
-  const show = await db.show.findUnique({
-    where: { id },
-    include: { venue: true, organizer: true },
-  });
+  const show = await getAdminShowById(id);
 
   if (!show) notFound();
 
   const approveShowWithId = approveShow.bind(null, show.id);
   const rejectShowWithId = rejectShow.bind(null, show.id);
   const markVerifiedWithId = markVerified.bind(null, show.id);
+  const isMutable = !isFixtureMode() || show.id.startsWith("local-show-");
 
   return (
-    <div className="p-6 lg:p-10 max-w-4xl">
-      <div className="flex items-center justify-between mb-6">
+    <div className="max-w-4xl p-6 lg:p-10">
+      <div className="mb-6 flex items-center justify-between">
         <Link href="/admin/shows" className="text-sm text-brand-600 hover:underline">
           ← Back to Shows
         </Link>
-        <Link href={`/shows/${show.slug}`} target="_blank"
-          className="text-sm text-slate-400 hover:text-slate-600">
+        <Link
+          href={`/shows/${show.slug}`}
+          target="_blank"
+          className="text-sm text-slate-400 hover:text-slate-600"
+        >
           View live ↗
         </Link>
       </div>
 
-      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 mb-8">
+      <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
           <h1 className="text-2xl font-bold text-slate-900">{show.title}</h1>
-          <p className="text-slate-500 mt-1">{show.city}, {show.state} · {formatShowDate(show.startDate, show.endDate)}</p>
+          <p className="mt-1 text-slate-500">
+            {show.city}, {show.state} · {formatShowDate(show.startDate, show.endDate)}
+          </p>
         </div>
         <StatusBadge status={show.status} />
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-3 mb-8 p-4 bg-white rounded-xl border border-slate-200">
-        {show.status !== "APPROVED" && (
-          <form action={approveShowWithId}>
-            <button type="submit"
-              className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white hover:bg-green-700 transition-colors">
-              ✓ Approve
-            </button>
-          </form>
+      <div className="mb-8 rounded-xl border border-slate-200 bg-white p-4">
+        {isMutable ? (
+          <div className="flex flex-wrap gap-3">
+            {show.status !== "APPROVED" && (
+              <form action={approveShowWithId}>
+                <button
+                  type="submit"
+                  className="rounded-lg bg-green-600 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-green-700"
+                >
+                  Approve
+                </button>
+              </form>
+            )}
+            {show.status !== "REJECTED" && (
+              <form action={rejectShowWithId}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-red-200 bg-red-50 px-5 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
+                >
+                  Reject
+                </button>
+              </form>
+            )}
+            <form action={markVerifiedWithId}>
+              <button
+                type="submit"
+                className="rounded-lg border border-slate-200 px-5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Mark Verified Today
+              </button>
+            </form>
+          </div>
+        ) : (
+          <p className="text-sm text-slate-500">
+            Built-in fixture listings are read-only. Submit a new show to test full
+            approval and publish flow.
+          </p>
         )}
-        {show.status !== "REJECTED" && (
-          <form action={rejectShowWithId}>
-            <button type="submit"
-              className="rounded-lg bg-red-50 border border-red-200 px-5 py-2 text-sm font-semibold text-red-700 hover:bg-red-100 transition-colors">
-              ✕ Reject
-            </button>
-          </form>
-        )}
-        <form action={markVerifiedWithId}>
-          <button type="submit"
-            className="rounded-lg border border-slate-200 px-5 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors">
-            Mark Verified Today
-          </button>
-        </form>
-        <p className="text-xs text-slate-400 self-center">
-          Last verified: {show.lastVerifiedAt
-            ? new Date(show.lastVerifiedAt).toLocaleDateString()
-            : "Never"}
+
+        <p className="mt-3 text-xs text-slate-400">
+          Last verified:{" "}
+          {show.lastVerifiedAt ? new Date(show.lastVerifiedAt).toLocaleDateString() : "Never"}
         </p>
       </div>
 
-      {/* Show details */}
       <div className="space-y-6">
         <Section title="Show Details">
           <Field label="Title" value={show.title} />
@@ -107,10 +152,14 @@ export default async function AdminShowDetailPage({ params }: Props) {
           <Field label="Categories" value={show.categories.join(", ") || "—"} />
           <Field label="Start Date" value={show.startDate.toLocaleString()} />
           <Field label="End Date" value={show.endDate.toLocaleString()} />
-          <Field label="Time" value={`${show.startTimeLabel ?? "—"} – ${show.endTimeLabel ?? "—"}`} />
+          <Field
+            label="Time"
+            value={`${show.startTimeLabel ?? "—"} - ${show.endTimeLabel ?? "—"}`}
+          />
           <Field label="Free" value={show.isFree ? "Yes" : "No"} />
           <Field label="Admission" value={show.admissionPrice ?? "—"} />
           <Field label="Table Count" value={show.tableCount?.toString() ?? "—"} />
+          <Field label="Vendor Details" value={show.vendorDetails ?? "—"} />
           {show.description && <Field label="Description" value={show.description} />}
         </Section>
 
@@ -121,7 +170,9 @@ export default async function AdminShowDetailPage({ params }: Props) {
             <>
               <Field label="Venue" value={show.venue.name} />
               <Field label="Address" value={show.venue.address1} />
-              {show.venue.postalCode && <Field label="Postal Code" value={show.venue.postalCode} />}
+              {show.venue.postalCode && (
+                <Field label="Postal Code" value={show.venue.postalCode} />
+              )}
             </>
           )}
           {show.parkingInfo && <Field label="Parking" value={show.parkingInfo} />}
@@ -131,7 +182,9 @@ export default async function AdminShowDetailPage({ params }: Props) {
           <Section title="Organizer">
             <Field label="Name" value={show.organizer.name} />
             {show.organizer.email && <Field label="Email" value={show.organizer.email} />}
-            {show.organizer.websiteUrl && <Field label="Website" value={show.organizer.websiteUrl} />}
+            {show.organizer.websiteUrl && (
+              <Field label="Website" value={show.organizer.websiteUrl} />
+            )}
           </Section>
         )}
 
@@ -154,8 +207,8 @@ export default async function AdminShowDetailPage({ params }: Props) {
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white overflow-hidden">
-      <div className="px-5 py-3 border-b border-slate-100 bg-slate-50">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+      <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
         <h2 className="text-sm font-semibold text-slate-700">{title}</h2>
       </div>
       <div className="divide-y divide-slate-50">{children}</div>
@@ -166,8 +219,10 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 function Field({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
   return (
     <div className="flex gap-4 px-5 py-3">
-      <span className="text-xs font-medium text-slate-400 w-32 shrink-0 pt-0.5">{label}</span>
-      <span className={`text-sm text-slate-900 break-words ${mono ? "font-mono text-xs" : ""}`}>
+      <span className="w-32 shrink-0 pt-0.5 text-xs font-medium text-slate-400">
+        {label}
+      </span>
+      <span className={`break-words text-sm text-slate-900 ${mono ? "font-mono text-xs" : ""}`}>
         {value}
       </span>
     </div>
@@ -176,13 +231,18 @@ function Field({ label, value, mono }: { label: string; value: string; mono?: bo
 
 function StatusBadge({ status }: { status: string }) {
   const styles: Record<string, string> = {
-    APPROVED: "bg-green-50 text-green-700 border-green-100",
-    PENDING: "bg-yellow-50 text-yellow-700 border-yellow-100",
-    REJECTED: "bg-red-50 text-red-600 border-red-100",
-    EXPIRED: "bg-slate-100 text-slate-500 border-slate-200",
+    APPROVED: "border-green-100 bg-green-50 text-green-700",
+    PENDING: "border-yellow-100 bg-yellow-50 text-yellow-700",
+    REJECTED: "border-red-100 bg-red-50 text-red-600",
+    EXPIRED: "border-slate-200 bg-slate-100 text-slate-500",
   };
+
   return (
-    <span className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${styles[status] ?? "bg-slate-100 text-slate-600"}`}>
+    <span
+      className={`inline-flex items-center rounded-full border px-3 py-1 text-sm font-medium ${
+        styles[status] ?? "border-slate-200 bg-slate-100 text-slate-600"
+      }`}
+    >
       {status}
     </span>
   );

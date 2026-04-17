@@ -1,4 +1,3 @@
-// Lightweight show type for card/list views (matches showCardSelect in shows.ts)
 export type ShowCard = {
   id: string;
   title: string;
@@ -8,11 +7,13 @@ export type ShowCard = {
   startDate: Date;
   endDate: Date;
   startTimeLabel: string | null;
+  endTimeLabel: string | null;
   isFree: boolean;
   admissionPrice: string | null;
   categories: string[];
   flyerImageUrl: string | null;
   tableCount: number | null;
+  vendorDetails: string | null;
   featuredRank: number | null;
   venue: { name: string } | null;
 };

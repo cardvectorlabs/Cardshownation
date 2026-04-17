@@ -1,41 +1,65 @@
 import Link from "next/link";
-import { MapPin, Menu } from "lucide-react";
+import { MapPin, Search } from "lucide-react";
+import { getDataModeLabel, isFixtureMode } from "@/lib/data-mode";
+import { CORE_MARKET_CODES, getStatesByCodes } from "@/lib/states";
+
+const quickStateLinks = getStatesByCodes(CORE_MARKET_CODES.slice(0, 4));
 
 export function Header() {
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-slate-200 shadow-sm">
-      <div className="container-wide flex h-16 items-center justify-between">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600">
-            <MapPin className="h-4 w-4 text-white" />
-          </div>
-          <span className="text-base font-bold text-slate-900 leading-tight">
-            Card Show<br className="hidden" />
-            <span className="text-brand-600"> Nation</span>
-          </span>
-        </Link>
-
-        {/* Desktop nav */}
-        <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
-          <Link
-            href="/card-shows"
-            className="text-slate-600 hover:text-brand-600 transition-colors"
-          >
-            Browse Shows
+    <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="container-wide py-3">
+        <div className="flex items-center justify-between gap-4">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-950 text-white shadow-sm">
+              <MapPin className="h-4 w-4" />
+            </div>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <p className="text-base font-semibold leading-none text-slate-950">
+                  Card Show Nation
+                </p>
+                {isFixtureMode() && (
+                  <span className="rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                    {getDataModeLabel()}
+                  </span>
+                )}
+              </div>
+              <p className="mt-1 hidden text-xs text-slate-500 sm:block">
+                Card show discovery for collectors and promoters
+              </p>
+            </div>
           </Link>
-          <Link
-            href="/submit-show"
-            className="rounded-lg bg-brand-600 px-4 py-2 text-white hover:bg-brand-700 transition-colors"
-          >
-            Submit a Show
-          </Link>
-        </nav>
 
-        {/* Mobile nav placeholder */}
-        <button className="flex md:hidden items-center justify-center h-9 w-9 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors">
-          <Menu className="h-5 w-5" />
-        </button>
+          <nav className="flex items-center gap-2 sm:gap-3">
+            <Link
+              href="/card-shows"
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+            >
+              <Search className="h-4 w-4" />
+              <span className="hidden sm:inline">Browse Shows</span>
+              <span className="sm:hidden">Browse</span>
+            </Link>
+            <Link
+              href="/submit-show"
+              className="inline-flex items-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+            >
+              Submit a Show
+            </Link>
+          </nav>
+        </div>
+
+        <div className="mt-3 flex gap-2 overflow-x-auto pb-1 md:hidden">
+          {quickStateLinks.map((state) => (
+            <Link
+              key={state.code}
+              href={`/card-shows/${state.slug}`}
+              className="whitespace-nowrap rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-medium text-slate-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
+            >
+              {state.name}
+            </Link>
+          ))}
+        </div>
       </div>
     </header>
   );

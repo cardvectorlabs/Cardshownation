@@ -1,106 +1,135 @@
-import { PrismaClient } from "@prisma/client";
+export type FixtureOrganizer = {
+  id: string;
+  name: string;
+  email: string | null;
+  websiteUrl: string | null;
+  facebookUrl: string | null;
+  instagramUrl: string | null;
+  verified: boolean;
+};
 
-const db = new PrismaClient();
+export type FixtureVenue = {
+  id: string;
+  name: string;
+  address1: string;
+  address2: string | null;
+  city: string;
+  state: string;
+  postalCode: string | null;
+  parkingInfo: string | null;
+  loadInInfo: string | null;
+};
 
-const STATES = [
-  { id: "AL", name: "Alabama", slug: "alabama", seoBlurb: null },
-  { id: "AK", name: "Alaska", slug: "alaska", seoBlurb: null },
-  { id: "AZ", name: "Arizona", slug: "arizona", seoBlurb: null },
-  { id: "AR", name: "Arkansas", slug: "arkansas", seoBlurb: null },
-  { id: "CA", name: "California", slug: "california", seoBlurb: null },
-  { id: "CO", name: "Colorado", slug: "colorado", seoBlurb: "Colorado collectors regularly travel between Denver, Colorado Springs, and the Front Range for sports card and TCG weekends. Browse upcoming shows with event details in one place." },
-  { id: "CT", name: "Connecticut", slug: "connecticut", seoBlurb: null },
-  { id: "DE", name: "Delaware", slug: "delaware", seoBlurb: null },
-  { id: "FL", name: "Florida", slug: "florida", seoBlurb: null },
-  { id: "GA", name: "Georgia", slug: "georgia", seoBlurb: null },
-  { id: "HI", name: "Hawaii", slug: "hawaii", seoBlurb: null },
-  { id: "ID", name: "Idaho", slug: "idaho", seoBlurb: null },
-  { id: "IL", name: "Illinois", slug: "illinois", seoBlurb: "Illinois card shows draw collectors from Chicago, the suburbs, and across the Midwest. Find upcoming sports card, Pokemon, and TCG events with dates, venues, and admission details." },
-  { id: "IN", name: "Indiana", slug: "indiana", seoBlurb: null },
-  { id: "IA", name: "Iowa", slug: "iowa", seoBlurb: "Iowa card shows give collectors a dependable way to plan quick weekend trips across Des Moines, Cedar Rapids, and the rest of the state. Browse upcoming sports card and TCG events here." },
-  { id: "KS", name: "Kansas", slug: "kansas", seoBlurb: "Kansas card shows are a core part of the launch footprint for Card Show Nation. Browse upcoming shows in Wichita, Overland Park, and across the state with venue, admission, and vendor details." },
-  { id: "KY", name: "Kentucky", slug: "kentucky", seoBlurb: null },
-  { id: "LA", name: "Louisiana", slug: "louisiana", seoBlurb: null },
-  { id: "ME", name: "Maine", slug: "maine", seoBlurb: null },
-  { id: "MD", name: "Maryland", slug: "maryland", seoBlurb: null },
-  { id: "MA", name: "Massachusetts", slug: "massachusetts", seoBlurb: null },
-  { id: "MI", name: "Michigan", slug: "michigan", seoBlurb: null },
-  { id: "MN", name: "Minnesota", slug: "minnesota", seoBlurb: null },
-  { id: "MS", name: "Mississippi", slug: "mississippi", seoBlurb: null },
-  { id: "MO", name: "Missouri", slug: "missouri", seoBlurb: "Missouri is one of the strongest early markets for Card Show Nation, with collectors moving between Kansas City, St. Louis, and regional weekend shows. Explore current listings and promoter details." },
-  { id: "MT", name: "Montana", slug: "montana", seoBlurb: null },
-  { id: "NE", name: "Nebraska", slug: "nebraska", seoBlurb: "Nebraska card shows offer a practical regional trip for collectors across Omaha, Lincoln, and neighboring states. Browse upcoming events with venue, admission, and table info." },
-  { id: "NV", name: "Nevada", slug: "nevada", seoBlurb: null },
-  { id: "NH", name: "New Hampshire", slug: "new-hampshire", seoBlurb: null },
-  { id: "NJ", name: "New Jersey", slug: "new-jersey", seoBlurb: null },
-  { id: "NM", name: "New Mexico", slug: "new-mexico", seoBlurb: null },
-  { id: "NY", name: "New York", slug: "new-york", seoBlurb: null },
-  { id: "NC", name: "North Carolina", slug: "north-carolina", seoBlurb: null },
-  { id: "ND", name: "North Dakota", slug: "north-dakota", seoBlurb: null },
-  { id: "OH", name: "Ohio", slug: "ohio", seoBlurb: null },
-  { id: "OK", name: "Oklahoma", slug: "oklahoma", seoBlurb: "Oklahoma collectors can use Card Show Nation to quickly find shows in Oklahoma City, Tulsa, and nearby regional markets. Browse dates, venues, and vendor details for upcoming weekends." },
-  { id: "OR", name: "Oregon", slug: "oregon", seoBlurb: null },
-  { id: "PA", name: "Pennsylvania", slug: "pennsylvania", seoBlurb: null },
-  { id: "RI", name: "Rhode Island", slug: "rhode-island", seoBlurb: null },
-  { id: "SC", name: "South Carolina", slug: "south-carolina", seoBlurb: null },
-  { id: "SD", name: "South Dakota", slug: "south-dakota", seoBlurb: null },
-  { id: "TN", name: "Tennessee", slug: "tennessee", seoBlurb: null },
-  { id: "TX", name: "Texas", slug: "texas", seoBlurb: "Texas remains a strong expansion market for Card Show Nation. Browse upcoming sports card and TCG events by city, venue, and date as the directory grows." },
-  { id: "UT", name: "Utah", slug: "utah", seoBlurb: null },
-  { id: "VT", name: "Vermont", slug: "vermont", seoBlurb: null },
-  { id: "VA", name: "Virginia", slug: "virginia", seoBlurb: null },
-  { id: "WA", name: "Washington", slug: "washington", seoBlurb: null },
-  { id: "WV", name: "West Virginia", slug: "west-virginia", seoBlurb: null },
-  { id: "WI", name: "Wisconsin", slug: "wisconsin", seoBlurb: null },
-  { id: "WY", name: "Wyoming", slug: "wyoming", seoBlurb: null },
-];
+export type FixtureShowTag = {
+  id: string;
+  label: string;
+};
 
-const ORGANIZERS = [
-  {
+export type FixtureShow = {
+  id: string;
+  title: string;
+  slug: string;
+  description: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED" | "EXPIRED";
+  sourceType: "MANUAL" | "SUBMITTED" | "IMPORTED";
+  timezone: string;
+  startDate: Date;
+  endDate: Date;
+  startTimeLabel: string | null;
+  endTimeLabel: string | null;
+  city: string;
+  state: string;
+  isFree: boolean;
+  admissionPrice: string | null;
+  admissionNotes: string | null;
+  tableCount: number | null;
+  vendorDetails: string | null;
+  estimatedAttendance: number | null;
+  flyerImageUrl: string | null;
+  websiteUrl: string | null;
+  facebookUrl: string | null;
+  ticketUrl: string | null;
+  parkingInfo: string | null;
+  loadInInfo: string | null;
+  venueNotes: string | null;
+  categories: string[];
+  lastVerifiedAt: Date | null;
+  expiresAt: Date | null;
+  viewCount: number;
+  favoriteCount: number;
+  featuredRank: number | null;
+  createdAt: Date;
+  updatedAt: Date;
+  organizerId: string | null;
+  venueId: string | null;
+  organizer: FixtureOrganizer | null;
+  venue: FixtureVenue | null;
+  tags: FixtureShowTag[];
+};
+
+export type FixtureSubmission = {
+  id: string;
+  submitterName: string;
+  submitterEmail: string;
+  payloadJson: Record<string, unknown>;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  notes: string | null;
+  reviewedShowId: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+const organizers: Record<string, FixtureOrganizer> = {
+  kansasCardShow: {
     id: "org-kansas-card-show",
     name: "Kansas Card Show",
+    email: "info@kansascardshow.com",
     websiteUrl: "https://kansascardshow.com",
     facebookUrl: null,
     instagramUrl: null,
     verified: true,
   },
-  {
+  midwestHobbyEvents: {
     id: "org-midwest-hobby-events",
     name: "Midwest Hobby Events",
+    email: "team@midwesthobbyevents.com",
     websiteUrl: null,
     facebookUrl: null,
     instagramUrl: null,
     verified: true,
   },
-  {
+  redDirtCollectibles: {
     id: "org-red-dirt-collectibles",
     name: "Red Dirt Collectibles",
+    email: "hello@reddirtcollectibles.com",
     websiteUrl: null,
     facebookUrl: null,
     instagramUrl: null,
     verified: true,
   },
-  {
-    id: "org-gateway-card-promotions",
-    name: "Gateway Card Promotions",
-    websiteUrl: null,
-    facebookUrl: null,
-    instagramUrl: null,
-    verified: true,
-  },
-  {
+  plainsCardMarket: {
     id: "org-plains-card-market",
     name: "Plains Card Market",
+    email: "info@plainscardmarket.com",
     websiteUrl: null,
     facebookUrl: null,
     instagramUrl: null,
     verified: true,
   },
-];
+  gatewayPromotions: {
+    id: "org-gateway-card-promotions",
+    name: "Gateway Card Promotions",
+    email: "events@gatewaycardpromotions.com",
+    websiteUrl: null,
+    facebookUrl: null,
+    instagramUrl: null,
+    verified: true,
+  },
+};
 
-const VENUES = [
-  {
-    id: "venue-wichita-expo",
+const venues: Record<string, FixtureVenue> = {
+  wichitaForum: {
+    id: "venue-wichita-forum",
     name: "Wichita Sports Forum",
     address1: "2668 N Greenwich Rd",
     address2: null,
@@ -110,8 +139,8 @@ const VENUES = [
     parkingInfo: "Free parking surrounds the venue.",
     loadInInfo: "Dealer setup opens at 7:30 AM.",
   },
-  {
-    id: "venue-overland-park",
+  overlandParkCenter: {
+    id: "venue-overland-park-event-center",
     name: "Overland Park Event Center",
     address1: "6000 College Blvd",
     address2: null,
@@ -121,8 +150,8 @@ const VENUES = [
     parkingInfo: "Surface parking is free on weekends.",
     loadInInfo: "Vendor check-in starts at 6:45 AM.",
   },
-  {
-    id: "venue-kansas-city",
+  kciExpo: {
+    id: "venue-kci-expo-hall",
     name: "KCI Expo Hall",
     address1: "11730 N Ambassador Dr",
     address2: null,
@@ -132,8 +161,8 @@ const VENUES = [
     parkingInfo: "Main lot parking is included with admission.",
     loadInInfo: "Dealer load-in starts at 7:00 AM on Saturday.",
   },
-  {
-    id: "venue-st-louis",
+  stCharles: {
+    id: "venue-st-charles-convention-center",
     name: "St. Charles Convention Center",
     address1: "1 Convention Center Plz",
     address2: null,
@@ -143,8 +172,8 @@ const VENUES = [
     parkingInfo: "Free attached lot parking.",
     loadInInfo: "Promoter staff begins vendor check-in at 7:00 AM.",
   },
-  {
-    id: "venue-okc",
+  okcHall: {
+    id: "venue-okc-event-hall",
     name: "OKC Event Hall",
     address1: "311 S Klein Ave",
     address2: null,
@@ -154,8 +183,8 @@ const VENUES = [
     parkingInfo: "Paid parking garage next to the hall.",
     loadInInfo: "Vendor entry opens at 8:00 AM.",
   },
-  {
-    id: "venue-tulsa",
+  tulsaMarket: {
+    id: "venue-tulsa-expo-market-hall",
     name: "Tulsa Expo Market Hall",
     address1: "4145 E 21st St",
     address2: null,
@@ -165,8 +194,8 @@ const VENUES = [
     parkingInfo: "Free parking available around Expo Square.",
     loadInInfo: "Trade night setup begins Friday at 5:00 PM.",
   },
-  {
-    id: "venue-omaha",
+  omahaCenter: {
+    id: "venue-omaha-fire-hall",
     name: "Omaha Fire Hall Event Center",
     address1: "6005 Grover St",
     address2: null,
@@ -176,8 +205,8 @@ const VENUES = [
     parkingInfo: "Free surface parking behind the hall.",
     loadInInfo: "Dealer setup starts at 7:00 AM.",
   },
-  {
-    id: "venue-lincoln",
+  lincolnPavilion: {
+    id: "venue-lincoln-event-pavilion",
     name: "Lincoln Event Pavilion",
     address1: "4100 Pioneer Woods Dr",
     address2: null,
@@ -187,8 +216,8 @@ const VENUES = [
     parkingInfo: "Free parking lot on site.",
     loadInInfo: "Vendor doors open at 7:30 AM.",
   },
-  {
-    id: "venue-des-moines",
+  desMoinesHall: {
+    id: "venue-iowa-events-hall",
     name: "Iowa Events Hall",
     address1: "730 3rd St",
     address2: null,
@@ -198,8 +227,8 @@ const VENUES = [
     parkingInfo: "Garage parking is available across the street.",
     loadInInfo: "Dealers may set up starting at 6:30 AM.",
   },
-  {
-    id: "venue-chicago",
+  chicagoHall: {
+    id: "venue-chicagoland-convention-hall",
     name: "Chicagoland Convention Hall",
     address1: "5555 N River Rd",
     address2: null,
@@ -209,16 +238,26 @@ const VENUES = [
     parkingInfo: "Convention parking garage available onsite.",
     loadInInfo: "Vendor move-in opens at 7:00 AM.",
   },
-];
+};
 
-const SAMPLE_SHOWS = [
-  {
+function show(values: Omit<FixtureShow, "viewCount" | "favoriteCount" | "tags">): FixtureShow {
+  return {
+    viewCount: 0,
+    favoriteCount: 0,
+    tags: [],
+    ...values,
+  };
+}
+
+export const FIXTURE_SHOWS: FixtureShow[] = [
+  show({
+    id: "fixture-show-ks-wichita-spring-weekend",
     title: "Kansas Card Show Spring Weekend",
     slug: "kansas-card-show-spring-weekend-wichita-2026",
     description:
       "A collector-first weekend with sports cards, Pokemon, and TCG tables across vintage, modern, wax, and singles. This sample listing shows the level of detail Card Show Nation can support for a flagship regional event.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-04-25T09:00:00"),
     endDate: new Date("2026-04-25T16:00:00"),
@@ -231,26 +270,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Kids 12 and under are free with a paid adult.",
     tableCount: 140,
     vendorDetails: "Dealer floor is nearly sold out. Promoter waitlist is open.",
+    estimatedAttendance: 850,
+    flyerImageUrl: null,
     websiteUrl: "https://kansascardshow.com",
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Free parking surrounds the venue.",
-    loadInInfo: "Dealer setup opens at 7:30 AM.",
+    parkingInfo: venues.wichitaForum.parkingInfo,
+    loadInInfo: venues.wichitaForum.loadInInfo,
     venueNotes: "Main hall entrance opens to the public at 8:45 AM.",
     categories: ["Sports Cards", "Pokemon", "TCG"],
     lastVerifiedAt: new Date("2026-04-10T12:00:00"),
     expiresAt: new Date("2026-04-26T23:59:59"),
     featuredRank: 1,
-    organizerId: "org-kansas-card-show",
-    venueId: "venue-wichita-expo",
-  },
-  {
+    createdAt: new Date("2026-03-28T09:00:00"),
+    updatedAt: new Date("2026-04-10T12:00:00"),
+    organizerId: organizers.kansasCardShow.id,
+    venueId: venues.wichitaForum.id,
+    organizer: organizers.kansasCardShow,
+    venue: venues.wichitaForum,
+  }),
+  show({
+    id: "fixture-show-ks-op-weekend",
     title: "Overland Park Card and TCG Weekend",
     slug: "overland-park-card-and-tcg-weekend-2026",
     description:
       "A strong suburban Kansas City market event with modern sports cards, graded inventory, sealed Pokemon product, and family-friendly traffic.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-05-09T09:00:00"),
     endDate: new Date("2026-05-09T15:00:00"),
@@ -263,26 +309,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Early buyer entry starts at 8:00 AM for $10.",
     tableCount: 85,
     vendorDetails: "A few dealer tables remain. TCG-focused vendors encouraged.",
+    estimatedAttendance: 420,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Surface parking is free on weekends.",
-    loadInInfo: "Vendor check-in starts at 6:45 AM.",
+    parkingInfo: venues.overlandParkCenter.parkingInfo,
+    loadInInfo: venues.overlandParkCenter.loadInInfo,
     venueNotes: null,
     categories: ["Sports Cards", "Pokemon", "TCG"],
     lastVerifiedAt: new Date("2026-04-11T12:00:00"),
     expiresAt: new Date("2026-05-10T23:59:59"),
     featuredRank: 3,
-    organizerId: "org-kansas-card-show",
-    venueId: "venue-overland-park",
-  },
-  {
+    createdAt: new Date("2026-04-01T09:00:00"),
+    updatedAt: new Date("2026-04-11T12:00:00"),
+    organizerId: organizers.kansasCardShow.id,
+    venueId: venues.overlandParkCenter.id,
+    organizer: organizers.kansasCardShow,
+    venue: venues.overlandParkCenter,
+  }),
+  show({
+    id: "fixture-show-mo-kc-weekend",
     title: "Kansas City Card Weekend",
     slug: "kansas-city-card-weekend-2026",
     description:
       "A metro draw for Missouri and Kansas collectors featuring vintage showcases, bargain boxes, and a broad dealer floor.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-05-02T09:00:00"),
     endDate: new Date("2026-05-03T15:00:00"),
@@ -295,26 +348,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Saturday-only admission is $5.",
     tableCount: 160,
     vendorDetails: "Full dealer floor plus Sunday trade tables.",
+    estimatedAttendance: 900,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Main lot parking is included with admission.",
-    loadInInfo: "Dealer load-in starts at 7:00 AM on Saturday.",
+    parkingInfo: venues.kciExpo.parkingInfo,
+    loadInInfo: venues.kciExpo.loadInInfo,
     venueNotes: "Trade night runs after close on Saturday.",
     categories: ["Sports Cards", "Pokemon", "Memorabilia"],
     lastVerifiedAt: new Date("2026-04-12T12:00:00"),
     expiresAt: new Date("2026-05-04T23:59:59"),
     featuredRank: 2,
-    organizerId: "org-midwest-hobby-events",
-    venueId: "venue-kansas-city",
-  },
-  {
+    createdAt: new Date("2026-03-30T10:00:00"),
+    updatedAt: new Date("2026-04-12T12:00:00"),
+    organizerId: organizers.midwestHobbyEvents.id,
+    venueId: venues.kciExpo.id,
+    organizer: organizers.midwestHobbyEvents,
+    venue: venues.kciExpo,
+  }),
+  show({
+    id: "fixture-show-mo-stl-showcase",
     title: "St. Louis Sports Card Showcase",
     slug: "st-louis-sports-card-showcase-2026",
     description:
       "A larger regional show built around sports cards with autograph guests, vintage showcases, and a broad Midwest dealer mix.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-05-16T10:00:00"),
     endDate: new Date("2026-05-17T16:00:00"),
@@ -327,26 +387,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "VIP early entry starts at 9:00 AM.",
     tableCount: 220,
     vendorDetails: "Promoter is accepting a limited number of premium corner booths.",
+    estimatedAttendance: 1200,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Free attached lot parking.",
-    loadInInfo: "Promoter staff begins vendor check-in at 7:00 AM.",
+    parkingInfo: venues.stCharles.parkingInfo,
+    loadInInfo: venues.stCharles.loadInInfo,
     venueNotes: null,
     categories: ["Sports Cards", "Memorabilia", "Autograph Guests"],
     lastVerifiedAt: new Date("2026-04-13T12:00:00"),
     expiresAt: new Date("2026-05-18T23:59:59"),
     featuredRank: 4,
-    organizerId: "org-gateway-card-promotions",
-    venueId: "venue-st-louis",
-  },
-  {
+    createdAt: new Date("2026-04-02T10:00:00"),
+    updatedAt: new Date("2026-04-13T12:00:00"),
+    organizerId: organizers.gatewayPromotions.id,
+    venueId: venues.stCharles.id,
+    organizer: organizers.gatewayPromotions,
+    venue: venues.stCharles,
+  }),
+  show({
+    id: "fixture-show-ok-okc-expo",
     title: "Oklahoma City Collectors Expo",
     slug: "oklahoma-city-collectors-expo-2026",
     description:
       "A broad hobby event with sports cards, Pokemon, and sealed product sellers serving the OKC market and surrounding states.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-05-23T10:00:00"),
     endDate: new Date("2026-05-23T16:00:00"),
@@ -359,26 +426,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Free public admission all day.",
     tableCount: 90,
     vendorDetails: "Dealer registration remains open through May 10.",
+    estimatedAttendance: 500,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Paid parking garage next to the hall.",
-    loadInInfo: "Vendor entry opens at 8:00 AM.",
+    parkingInfo: venues.okcHall.parkingInfo,
+    loadInInfo: venues.okcHall.loadInInfo,
     venueNotes: null,
     categories: ["Sports Cards", "Pokemon", "TCG"],
     lastVerifiedAt: new Date("2026-04-14T12:00:00"),
     expiresAt: new Date("2026-05-24T23:59:59"),
     featuredRank: null,
-    organizerId: "org-red-dirt-collectibles",
-    venueId: "venue-okc",
-  },
-  {
+    createdAt: new Date("2026-04-03T11:00:00"),
+    updatedAt: new Date("2026-04-14T12:00:00"),
+    organizerId: organizers.redDirtCollectibles.id,
+    venueId: venues.okcHall.id,
+    organizer: organizers.redDirtCollectibles,
+    venue: venues.okcHall,
+  }),
+  show({
+    id: "fixture-show-ok-tulsa-trade-night",
     title: "Tulsa Trade Night and Card Show",
     slug: "tulsa-trade-night-and-card-show-2026",
     description:
       "A one-two punch weekend with a Friday trade night and a Saturday card show focused on active buying, selling, and trading.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-06-06T09:00:00"),
     endDate: new Date("2026-06-06T15:00:00"),
@@ -391,26 +465,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Friday trade night is free with Saturday admission.",
     tableCount: 75,
     vendorDetails: "Promoter expects a fast-moving singles-heavy floor.",
+    estimatedAttendance: 350,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Free parking available around Expo Square.",
-    loadInInfo: "Trade night setup begins Friday at 5:00 PM.",
+    parkingInfo: venues.tulsaMarket.parkingInfo,
+    loadInInfo: venues.tulsaMarket.loadInInfo,
     venueNotes: "Saturday opens with a trade pit near the entrance.",
     categories: ["Sports Cards", "Trade Night", "TCG"],
     lastVerifiedAt: new Date("2026-04-14T12:00:00"),
     expiresAt: new Date("2026-06-07T23:59:59"),
     featuredRank: null,
-    organizerId: "org-red-dirt-collectibles",
-    venueId: "venue-tulsa",
-  },
-  {
+    createdAt: new Date("2026-04-05T11:00:00"),
+    updatedAt: new Date("2026-04-14T12:00:00"),
+    organizerId: organizers.redDirtCollectibles.id,
+    venueId: venues.tulsaMarket.id,
+    organizer: organizers.redDirtCollectibles,
+    venue: venues.tulsaMarket,
+  }),
+  show({
+    id: "fixture-show-ne-omaha-hobby",
     title: "Omaha Hobby Card Show",
     slug: "omaha-hobby-card-show-2026",
     description:
       "A Nebraska regional event with strong sports card inventory, wax, and value tables aimed at local collectors and weekend travelers.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-05-30T09:00:00"),
     endDate: new Date("2026-05-30T15:00:00"),
@@ -423,26 +504,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Cash and card accepted at the door.",
     tableCount: 70,
     vendorDetails: "Promoter is still accepting local dealer applications.",
+    estimatedAttendance: 325,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Free surface parking behind the hall.",
-    loadInInfo: "Dealer setup starts at 7:00 AM.",
+    parkingInfo: venues.omahaCenter.parkingInfo,
+    loadInInfo: venues.omahaCenter.loadInInfo,
     venueNotes: null,
     categories: ["Sports Cards", "Pokemon", "Mixed"],
     lastVerifiedAt: new Date("2026-04-15T12:00:00"),
     expiresAt: new Date("2026-05-31T23:59:59"),
     featuredRank: null,
-    organizerId: "org-plains-card-market",
-    venueId: "venue-omaha",
-  },
-  {
+    createdAt: new Date("2026-04-06T10:00:00"),
+    updatedAt: new Date("2026-04-15T12:00:00"),
+    organizerId: organizers.plainsCardMarket.id,
+    venueId: venues.omahaCenter.id,
+    organizer: organizers.plainsCardMarket,
+    venue: venues.omahaCenter,
+  }),
+  show({
+    id: "fixture-show-ne-lincoln-market",
     title: "Lincoln Card and Collectibles Market",
     slug: "lincoln-card-and-collectibles-market-2026",
     description:
       "A collector-focused Nebraska weekend show with sports cards, Pokemon, and entry-level table pricing for smaller dealers.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-06-13T10:00:00"),
     endDate: new Date("2026-06-13T16:00:00"),
@@ -455,26 +543,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Free public admission.",
     tableCount: 55,
     vendorDetails: "Low-cost vendor tables available for new dealers.",
+    estimatedAttendance: 250,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Free parking lot on site.",
-    loadInInfo: "Vendor doors open at 7:30 AM.",
+    parkingInfo: venues.lincolnPavilion.parkingInfo,
+    loadInInfo: venues.lincolnPavilion.loadInInfo,
     venueNotes: null,
     categories: ["Sports Cards", "Pokemon", "TCG"],
     lastVerifiedAt: new Date("2026-04-15T12:00:00"),
     expiresAt: new Date("2026-06-14T23:59:59"),
     featuredRank: null,
-    organizerId: "org-plains-card-market",
-    venueId: "venue-lincoln",
-  },
-  {
+    createdAt: new Date("2026-04-06T11:00:00"),
+    updatedAt: new Date("2026-04-15T12:00:00"),
+    organizerId: organizers.plainsCardMarket.id,
+    venueId: venues.lincolnPavilion.id,
+    organizer: organizers.plainsCardMarket,
+    venue: venues.lincolnPavilion,
+  }),
+  show({
+    id: "fixture-show-ia-des-moines",
     title: "Des Moines Sports Card Show",
     slug: "des-moines-sports-card-show-2026",
     description:
       "A growing Iowa sports card event with modern singles, grading-ready inventory, and family-friendly hours.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-06-20T09:00:00"),
     endDate: new Date("2026-06-20T15:00:00"),
@@ -487,26 +582,33 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Kids 10 and under are free.",
     tableCount: 65,
     vendorDetails: "Sports cards lead the floor, with a smaller TCG section.",
+    estimatedAttendance: 280,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Garage parking is available across the street.",
-    loadInInfo: "Dealers may set up starting at 6:30 AM.",
+    parkingInfo: venues.desMoinesHall.parkingInfo,
+    loadInInfo: venues.desMoinesHall.loadInInfo,
     venueNotes: null,
     categories: ["Sports Cards", "TCG"],
     lastVerifiedAt: new Date("2026-04-15T12:00:00"),
     expiresAt: new Date("2026-06-21T23:59:59"),
     featuredRank: null,
-    organizerId: "org-midwest-hobby-events",
-    venueId: "venue-des-moines",
-  },
-  {
+    createdAt: new Date("2026-04-07T10:00:00"),
+    updatedAt: new Date("2026-04-15T12:00:00"),
+    organizerId: organizers.midwestHobbyEvents.id,
+    venueId: venues.desMoinesHall.id,
+    organizer: organizers.midwestHobbyEvents,
+    venue: venues.desMoinesHall,
+  }),
+  show({
+    id: "fixture-show-il-chicagoland",
     title: "Chicagoland Card Expo",
     slug: "chicagoland-card-expo-2026",
     description:
       "A larger Illinois market event with modern, vintage, memorabilia, and Pokemon inventory from dealers across the region.",
-    status: "APPROVED" as const,
-    sourceType: "MANUAL" as const,
+    status: "APPROVED",
+    sourceType: "MANUAL",
     timezone: "America/Chicago",
     startDate: new Date("2026-06-27T10:00:00"),
     endDate: new Date("2026-06-28T16:00:00"),
@@ -519,113 +621,23 @@ const SAMPLE_SHOWS = [
     admissionNotes: "Early entry badge available online only.",
     tableCount: 240,
     vendorDetails: "Dealer floor is full with a waitlist for premium placement.",
+    estimatedAttendance: 1400,
+    flyerImageUrl: null,
     websiteUrl: null,
     facebookUrl: null,
     ticketUrl: null,
-    parkingInfo: "Convention parking garage available onsite.",
-    loadInInfo: "Vendor move-in opens at 7:00 AM.",
+    parkingInfo: venues.chicagoHall.parkingInfo,
+    loadInInfo: venues.chicagoHall.loadInInfo,
     venueNotes: "Main stage programming begins at noon on Saturday.",
     categories: ["Sports Cards", "Pokemon", "Memorabilia"],
     lastVerifiedAt: new Date("2026-04-16T12:00:00"),
     expiresAt: new Date("2026-06-29T23:59:59"),
     featuredRank: null,
-    organizerId: "org-midwest-hobby-events",
-    venueId: "venue-chicago",
-  },
+    createdAt: new Date("2026-04-08T10:00:00"),
+    updatedAt: new Date("2026-04-16T12:00:00"),
+    organizerId: organizers.midwestHobbyEvents.id,
+    venueId: venues.chicagoHall.id,
+    organizer: organizers.midwestHobbyEvents,
+    venue: venues.chicagoHall,
+  }),
 ];
-
-const LEGACY_SAMPLE_SLUGS = [
-  "dallas-fort-worth-card-show-april-2026",
-  "houston-sports-card-collectibles-show-april-2026",
-  "ohio-card-show-columbus-april-2026",
-  "chicago-card-show-april-2026",
-  "kansas-city-card-show-april-2026",
-  "wichita-sports-card-show-april-2026",
-  "atlanta-card-expo-may-2026",
-  "nashville-sports-card-show-may-2026",
-  "philadelphia-card-show-may-2026",
-  "oklahoma-city-card-show-may-2026",
-  "los-angeles-card-collectibles-show-may-2026",
-  "charlotte-card-show-may-2026",
-];
-
-async function main() {
-  console.log("Seeding database...");
-
-  for (const state of STATES) {
-    await db.state.upsert({
-      where: { id: state.id },
-      update: {
-        name: state.name,
-        slug: state.slug,
-        seoBlurb: state.seoBlurb,
-      },
-      create: state,
-    });
-  }
-
-  console.log(`Seeded ${STATES.length} states`);
-
-  for (const organizer of ORGANIZERS) {
-    await db.organizer.upsert({
-      where: { id: organizer.id },
-      update: {
-        name: organizer.name,
-        websiteUrl: organizer.websiteUrl,
-        facebookUrl: organizer.facebookUrl,
-        instagramUrl: organizer.instagramUrl,
-        verified: organizer.verified,
-      },
-      create: organizer,
-    });
-  }
-
-  console.log(`Seeded ${ORGANIZERS.length} organizers`);
-
-  for (const venue of VENUES) {
-    await db.venue.upsert({
-      where: { id: venue.id },
-      update: {
-        name: venue.name,
-        address1: venue.address1,
-        address2: venue.address2,
-        city: venue.city,
-        state: venue.state,
-        postalCode: venue.postalCode,
-        parkingInfo: venue.parkingInfo,
-        loadInInfo: venue.loadInInfo,
-      },
-      create: venue,
-    });
-  }
-
-  console.log(`Seeded ${VENUES.length} venues`);
-
-  await db.show.deleteMany({
-    where: {
-      slug: {
-        in: LEGACY_SAMPLE_SLUGS,
-      },
-    },
-  });
-
-  for (const show of SAMPLE_SHOWS) {
-    await db.show.upsert({
-      where: { slug: show.slug },
-      update: show,
-      create: show,
-    });
-  }
-
-  console.log(`Seeded ${SAMPLE_SHOWS.length} sample shows`);
-  console.log("Seed complete");
-}
-
-main()
-  .catch((error) => {
-    console.error(error);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await db.$disconnect();
-  });

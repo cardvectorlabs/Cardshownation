@@ -1,131 +1,213 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { db } from "@/lib/db";
-import { getShowsByState, getCitiesWithShows } from "@/lib/shows";
+import { ArrowRight, CalendarDays, MapPin, Megaphone } from "lucide-react";
 import { ShowCard } from "@/components/shows/show-card";
+import { getCitiesWithShows, getShowsByState } from "@/lib/shows";
+import { getStateBySlug } from "@/lib/states";
 
 export const revalidate = 3600;
+export const dynamic = "force-dynamic";
 
-type Props = { params: Promise<{ state: string }> };
-
-export async function generateStaticParams() {
-  const states = await db.state.findMany({ select: { slug: true } });
-  return states.map((s: any) => ({ state: s.slug }));
-}
+type Props = {
+  params: Promise<{ state: string }>;
+};
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { state } = await params;
-  const stateRecord = await db.state.findUnique({ where: { slug: state } });
+  const stateRecord = getStateBySlug(state);
+
   if (!stateRecord) return {};
+
   return {
-    title: `Card Shows in ${stateRecord.name}`,
+    title: `${stateRecord.name} Card Shows`,
     description:
       stateRecord.seoBlurb ??
-      `Find upcoming sports card shows, Pokémon events, and TCG tournaments in ${stateRecord.name}.`,
+      `Find upcoming sports card, Pokemon, and TCG shows in ${stateRecord.name}. Browse dates, venues, admission info, and promoter details on Card Show Nation.`,
   };
 }
 
 export default async function StatePage({ params }: Props) {
   const { state } = await params;
-  const stateRecord = await db.state.findUnique({ where: { slug: state } });
+  const stateRecord = getStateBySlug(state);
+
   if (!stateRecord) notFound();
 
-  const stateCode = stateRecord.id;
   const [shows, cities] = await Promise.all([
-    getShowsByState(stateCode, 24),
-    getCitiesWithShows(stateCode),
+    getShowsByState(stateRecord.code, 24),
+    getCitiesWithShows(stateRecord.code),
   ]);
 
+  const freeShows = shows.filter((show) => show.isFree).length;
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "CollectionPage",
+    name: `${stateRecord.name} Card Shows`,
+    description:
+      stateRecord.seoBlurb ??
+      `Upcoming card shows in ${stateRecord.name} listed on Card Show Nation.`,
+    url: `https://cardshownation.com/card-shows/${stateRecord.slug}`,
+    mainEntity: {
+      "@type": "ItemList",
+      itemListElement: shows.map((show, index) => ({
+        "@type": "ListItem",
+        position: index + 1,
+        url: `https://cardshownation.com/shows/${show.slug}`,
+        name: show.title,
+      })),
+    },
+  };
+
   return (
-    <div className="container-wide py-10">
-      {/* Breadcrumb */}
-      <nav className="text-sm text-slate-400 mb-6 flex items-center gap-2">
-        <Link href="/card-shows" className="hover:text-brand-600 transition-colors">
-          Card Shows
-        </Link>
-        <span>/</span>
-        <span className="text-slate-700">{stateRecord.name}</span>
-      </nav>
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
 
-      <h1 className="text-3xl font-bold text-slate-900">
-        Card Shows in {stateRecord.name}
-      </h1>
+      <div className="container-wide py-10">
+        <nav className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
+          <Link href="/" className="transition-colors hover:text-brand-700">
+            Home
+          </Link>
+          <span>/</span>
+          <Link href="/card-shows" className="transition-colors hover:text-brand-700">
+            Card shows
+          </Link>
+          <span>/</span>
+          <span className="text-slate-900">{stateRecord.name}</span>
+        </nav>
 
-      {stateRecord.seoBlurb && (
-        <p className="mt-3 text-slate-500 max-w-2xl leading-relaxed">
-          {stateRecord.seoBlurb}
-        </p>
-      )}
+        <section className="mt-6 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
+            State directory
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+            Upcoming {stateRecord.name} card shows
+          </h1>
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+            {stateRecord.seoBlurb ??
+              `Browse upcoming shows in ${stateRecord.name} with dates, venue details, admission info, and promoter links. Card Show Nation is structured to make local discovery simple for collectors planning the next weekend trip.`}
+          </p>
 
-      {/* Browse by city */}
-      {cities.length > 0 && (
-        <div className="mt-8">
-          <h2 className="text-sm font-semibold uppercase tracking-wider text-slate-400 mb-3">
-            Browse by City
-          </h2>
-          <div className="flex flex-wrap gap-2">
-            {cities.map(({ city, count }: { city: string; count: number }) => {
-              const citySlug = city.toLowerCase().replace(/\s+/g, "-");
-              return (
+          <div className="mt-6 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Upcoming shows</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">
+                {shows.length}
+              </p>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Cities covered</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">
+                {cities.length}
+              </p>
+            </div>
+            <div className="rounded-3xl bg-slate-50 p-4">
+              <p className="text-sm text-slate-500">Free admission shows</p>
+              <p className="mt-1 text-2xl font-semibold text-slate-950">
+                {freeShows}
+              </p>
+            </div>
+          </div>
+        </section>
+
+        {cities.length > 0 && (
+          <section className="mt-10">
+            <div className="flex items-center gap-2">
+              <MapPin className="h-4 w-4 text-brand-700" />
+              <h2 className="text-lg font-semibold text-slate-950">
+                Browse {stateRecord.name} by city
+              </h2>
+            </div>
+            <div className="mt-4 flex flex-wrap gap-2">
+              {cities.map(({ city, count }) => (
                 <Link
                   key={city}
-                  href={`/card-shows/${state}/${citySlug}`}
-                  className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-600 hover:border-brand-300 hover:text-brand-700 hover:bg-brand-50 transition-all"
+                  href={`/card-shows?state=${stateRecord.code}&city=${encodeURIComponent(city)}`}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
                 >
                   {city}
-                  <span className="ml-1.5 text-xs text-slate-400">({count})</span>
+                  <span className="ml-2 text-xs text-slate-400">{count}</span>
                 </Link>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Shows */}
-      <div className="mt-10">
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-xl font-bold text-slate-900">
-            Upcoming Shows in {stateRecord.name}
-          </h2>
-        </div>
-
-        {shows.length === 0 ? (
-          <div className="rounded-xl border border-slate-200 bg-slate-50 py-16 text-center">
-            <p className="text-slate-500">No upcoming shows in {stateRecord.name}.</p>
-            <p className="mt-2 text-sm text-slate-400">
-              Know of a show?{" "}
-              <Link href="/submit-show" className="text-brand-600 hover:underline">
-                Submit it here
-              </Link>
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {shows.map((show: any) => (
-              <ShowCard key={show.id} show={show} />
-            ))}
-          </div>
+              ))}
+            </div>
+          </section>
         )}
-      </div>
 
-      {/* CTA */}
-      <div className="mt-12 rounded-xl border border-brand-100 bg-brand-50 px-6 py-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <p className="font-semibold text-brand-900">
-            Organizing a show in {stateRecord.name}?
-          </p>
-          <p className="text-sm text-brand-600 mt-0.5">
-            Submit your listing and reach collectors statewide.
-          </p>
-        </div>
-        <Link
-          href="/submit-show"
-          className="shrink-0 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-brand-700 transition-colors"
-        >
-          Submit a Show
-        </Link>
+        <section className="mt-10">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-brand-700" />
+              <h2 className="text-2xl font-semibold text-slate-950">
+                Shows in {stateRecord.name}
+              </h2>
+            </div>
+            <Link
+              href="/submit-show"
+              className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
+            >
+              Submit a show in {stateRecord.name}
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+
+          {shows.length === 0 ? (
+            <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10 text-center">
+              <p className="text-lg font-semibold text-slate-900">
+                No upcoming shows are listed in {stateRecord.name} yet.
+              </p>
+              <p className="mt-3 text-sm leading-6 text-slate-600">
+                The directory is built to expand quickly. If you know a show in{" "}
+                {stateRecord.name}, send it in for review and we can publish it.
+              </p>
+              <Link
+                href="/submit-show"
+                className="mt-6 inline-flex items-center gap-2 rounded-full bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+              >
+                Submit a show
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+              {shows.map((show) => (
+                <ShowCard key={show.id} show={show} />
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="mt-12 rounded-[2rem] bg-slate-950 px-6 py-8 text-white sm:px-8">
+          <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+            <div className="max-w-2xl">
+              <div className="flex items-center gap-2 text-brand-300">
+                <Megaphone className="h-4 w-4" />
+                <p className="text-sm font-semibold uppercase tracking-[0.2em]">
+                  Promoter callout
+                </p>
+              </div>
+              <h2 className="mt-3 text-2xl font-semibold">
+                Organizing a show in {stateRecord.name}?
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-slate-300 sm:text-base">
+                Start with a listing now. The structure already leaves room for
+                future promoter profiles, repeated events, sponsorships, and
+                organizer tooling.
+              </p>
+            </div>
+
+            <Link
+              href="/submit-show"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
+            >
+              Submit your show
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </section>
       </div>
-    </div>
+    </>
   );
 }
