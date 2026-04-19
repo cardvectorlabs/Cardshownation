@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { LayoutDashboard, ListChecks, Send, Settings } from "lucide-react";
+import { LayoutDashboard, ListChecks, Send, Upload, RefreshCw } from "lucide-react";
 
-// TODO: Protect with auth before launch — add session check here
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
@@ -18,6 +17,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
             { href: "/admin/submissions", label: "Submissions", icon: Send },
             { href: "/admin/shows", label: "All Shows", icon: ListChecks },
+            { href: "/admin/import", label: "Import CSV", icon: Upload },
+            { href: "/admin/imports", label: "Auto-Import", icon: RefreshCw },
           ].map(({ href, label, icon: Icon }) => (
             <Link
               key={href}

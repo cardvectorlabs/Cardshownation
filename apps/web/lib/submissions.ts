@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
+import { getCityCoords } from "@/lib/city-coords";
 import {
   approveFixtureSubmission,
   createFixtureSubmission,
@@ -121,6 +122,7 @@ export async function approveShowSubmission(submissionId: string) {
       },
     });
 
+    const coords = getCityCoords(city, state);
     const venue =
       existingVenue ??
       (await db.venue.create({
@@ -130,6 +132,8 @@ export async function approveShowSubmission(submissionId: string) {
           city,
           state,
           parkingInfo: readString(payload, "parkingInfo"),
+          latitude: coords?.lat ?? null,
+          longitude: coords?.lng ?? null,
         },
       }));
 
@@ -177,6 +181,7 @@ export async function approveShowSubmission(submissionId: string) {
       status: "APPROVED",
       sourceType: "SUBMITTED",
       lastVerifiedAt: new Date(),
+      expiresAt: new Date(new Date(readString(payload, "endDate") ?? new Date().toISOString()).getTime() + 24 * 60 * 60 * 1000),
       organizerId,
       venueId,
     },

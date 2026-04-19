@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowRight, CalendarDays, MapPin, Megaphone } from "lucide-react";
-import { ShowCard } from "@/components/shows/show-card";
 import { getCitiesWithShows, getShowsByState } from "@/lib/shows";
 import { getStateBySlug } from "@/lib/states";
+import { ShowListItem } from "@/components/shows/show-list-item";
+import { slugify } from "@/lib/utils";
 
 export const revalidate = 3600;
 export const dynamic = "force-dynamic";
@@ -125,7 +126,7 @@ export default async function StatePage({ params }: Props) {
               {cities.map(({ city, count }) => (
                 <Link
                   key={city}
-                  href={`/card-shows?state=${stateRecord.code}&city=${encodeURIComponent(city)}`}
+                  href={`/card-shows/${stateRecord.slug}/${slugify(city)}`}
                   className="rounded-full border border-slate-200 bg-white px-4 py-2 text-sm text-slate-600 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
                 >
                   {city}
@@ -171,9 +172,9 @@ export default async function StatePage({ params }: Props) {
               </Link>
             </div>
           ) : (
-            <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <div className="mt-6 flex flex-col gap-2">
               {shows.map((show) => (
-                <ShowCard key={show.id} show={show} />
+                <ShowListItem key={show.id} show={show} />
               ))}
             </div>
           )}

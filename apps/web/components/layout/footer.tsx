@@ -50,7 +50,7 @@ export function Footer() {
           </div>
 
           <div>
-            <p className="text-sm font-semibold text-slate-950">Launch States</p>
+            <p className="text-sm font-semibold text-slate-950">Browse by State</p>
             <div className="mt-4 grid grid-cols-2 gap-x-4 gap-y-2 text-sm text-slate-600">
               {featuredStates.map((state) => (
                 <Link

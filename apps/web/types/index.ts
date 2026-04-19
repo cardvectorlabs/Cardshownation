@@ -16,4 +16,5 @@ export type ShowCard = {
   vendorDetails: string | null;
   featuredRank: number | null;
   venue: { name: string } | null;
+  distanceMiles?: number;
 };

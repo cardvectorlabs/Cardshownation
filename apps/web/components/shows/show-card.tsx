@@ -59,9 +59,16 @@ export function ShowCard({ show }: { show: ShowCardData }) {
             <div className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-brand-600" />
               <div>
-                <p className="font-medium text-slate-800">
-                  {show.city}, {stateName}
-                </p>
+                <div className="flex items-center gap-2">
+                  <p className="font-medium text-slate-800">
+                    {show.city}, {stateName}
+                  </p>
+                  {show.distanceMiles !== undefined && (
+                    <span className="rounded-full bg-brand-50 px-2 py-0.5 text-[11px] font-medium text-brand-700">
+                      {show.distanceMiles} mi
+                    </span>
+                  )}
+                </div>
                 {show.venue && <p>{show.venue.name}</p>}
               </div>
             </div>

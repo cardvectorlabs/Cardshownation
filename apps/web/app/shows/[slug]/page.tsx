@@ -134,7 +134,7 @@ export default async function ShowDetailPage({ params }: Props) {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
       />
 
-      <div className="container-wide py-10">
+      <div className="container-wide py-6 sm:py-10">
         <nav className="flex flex-wrap items-center gap-2 text-sm text-slate-500">
           <Link href="/" className="transition-colors hover:text-brand-700">
             Home
@@ -173,7 +173,7 @@ export default async function ShowDetailPage({ params }: Props) {
 
           <div className="mt-5 grid gap-8 lg:grid-cols-[1.1fr_0.9fr]">
             <div>
-              <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+              <h1 className="text-2xl font-semibold tracking-tight text-slate-950 sm:text-3xl lg:text-4xl">
                 {show.title}
               </h1>
               <div className="mt-4 space-y-2 text-sm text-slate-600 sm:text-base">
@@ -412,7 +412,7 @@ export default async function ShowDetailPage({ params }: Props) {
               </div>
             </section>
 
-            <section className="rounded-[2rem] bg-slate-950 p-5 text-white">
+<section className="rounded-[2rem] bg-slate-950 p-5 text-white">
               <div className="flex items-center gap-2 text-brand-300">
                 <Megaphone className="h-4 w-4" />
                 <p className="text-sm font-semibold uppercase tracking-[0.2em]">

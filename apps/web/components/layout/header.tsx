@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { MapPin, Search } from "lucide-react";
 import { getDataModeLabel, isFixtureMode } from "@/lib/data-mode";
-import { CORE_MARKET_CODES, getStatesByCodes } from "@/lib/states";
+import { getStatesByCodes } from "@/lib/states";
 
-const quickStateLinks = getStatesByCodes(CORE_MARKET_CODES.slice(0, 4));
+// High-traffic states shown as quick links on mobile
+const quickStateLinks = getStatesByCodes(["TX", "CA", "FL", "OH", "PA", "IL"]);
 
 export function Header() {
   return (

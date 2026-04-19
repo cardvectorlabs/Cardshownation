@@ -15,13 +15,21 @@ export const metadata: Metadata = {
     template: "%s | Card Show Nation",
   },
   description:
-    "Card Show Nation helps collectors discover upcoming sports card, Pokemon, and TCG shows by state, city, and date.",
+    "The national card show directory. Find upcoming sports card, Pokemon, and TCG shows by state, city, and date.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? "https://cardshownation.com"
   ),
   openGraph: {
     siteName: "Card Show Nation",
     type: "website",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true },
+  },
+  alternates: {
+    canonical: process.env.NEXT_PUBLIC_APP_URL ?? "https://cardshownation.com",
   },
 };
 
@@ -32,6 +40,9 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className={inter.variable}>
+      <head>
+        <meta charSet="utf-8" />
+      </head>
       <body className="min-h-screen bg-slate-50 font-sans text-slate-950 antialiased">
         <div className="flex min-h-screen flex-col">
           <Header />

@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { ShowCard } from "@/components/shows/show-card";
-import { SHOW_CATEGORIES, getUpcomingShows } from "@/lib/shows";
+import { ShowListItem } from "@/components/shows/show-list-item";
+import { NearMeButton } from "@/components/shows/near-me-button";
+import { ViewToggle } from "@/components/shows/view-toggle";
+import { SHOW_CATEGORIES, getUpcomingShows, getNearbyShows } from "@/lib/shows";
 import { US_STATES, getStateByCode } from "@/lib/states";
+import { StateDirectory } from "@/components/shows/state-directory";
 
 export const revalidate = 3600;
 export const dynamic = "force-dynamic";
@@ -21,6 +25,10 @@ type SearchParams = {
   free?: string;
   q?: string;
   page?: string;
+  lat?: string;
+  lng?: string;
+  radius?: string;
+  view?: string;
 };
 
 function buildQuery(
@@ -43,23 +51,41 @@ export default async function CardShowsPage({
   searchParams: Promise<SearchParams>;
 }) {
   const sp = await searchParams;
+
+  const isNearMe = Boolean(sp.lat && sp.lng);
+  const lat = parseFloat(sp.lat ?? "");
+  const lng = parseFloat(sp.lng ?? "");
+  const radiusMiles = parseInt(sp.radius ?? "100") || 100;
+
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const limit = 18;
   const offset = (page - 1) * limit;
 
-  const { shows, total } = await getUpcomingShows({
-    state: sp.state,
-    city: sp.city,
-    category: sp.category,
-    isFree: sp.free === "1" ? true : undefined,
-    q: sp.q,
-    limit,
-    offset,
-  });
+  let shows: Awaited<ReturnType<typeof getNearbyShows>>;
+  let total: number;
+
+  if (isNearMe && !isNaN(lat) && !isNaN(lng)) {
+    shows = await getNearbyShows({ lat, lng, radiusMiles });
+    total = shows.length;
+  } else {
+    const result = await getUpcomingShows({
+      state: sp.state,
+      city: sp.city,
+      category: sp.category,
+      isFree: sp.free === "1" ? true : undefined,
+      q: sp.q,
+      limit,
+      offset,
+    });
+    shows = result.shows;
+    total = result.total;
+  }
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
-  const hasFilters = Boolean(sp.state || sp.city || sp.category || sp.free || sp.q);
+  const hasFilters = Boolean(sp.state || sp.city || sp.category || sp.free || sp.q || isNearMe);
   const stateName = getStateByCode(sp.state)?.name;
+  const view = sp.view === "grid" ? "grid" : "list";
+
 
   return (
     <div className="container-wide py-10">
@@ -76,7 +102,8 @@ export default async function CardShowsPage({
           filtering and discovery.
         </p>
 
-        <form action="/card-shows" method="GET" className="mt-6 grid gap-3 lg:grid-cols-[1.6fr_1fr_1fr_auto]">
+        <form action="/card-shows" method="GET" className="mt-6 space-y-3">
+          {/* Search input — full width */}
           <div className="relative">
             <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
             <input
@@ -88,121 +115,111 @@ export default async function CardShowsPage({
             />
           </div>
 
-          <select
-            name="state"
-            defaultValue={sp.state ?? ""}
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
-          >
-            <option value="">All states</option>
-            {US_STATES.map((state) => (
-              <option key={state.code} value={state.code}>
-                {state.name}
-              </option>
-            ))}
-          </select>
+          {/* State + Category selects side by side on 360px+, stacked below */}
+          <div className="grid gap-3 min-[360px]:grid-cols-2">
+            <select
+              name="state"
+              defaultValue={sp.state ?? ""}
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
+            >
+              <option value="">All states</option>
+              {US_STATES.map((state) => (
+                <option key={state.code} value={state.code}>
+                  {state.name}
+                </option>
+              ))}
+            </select>
 
-          <select
-            name="category"
-            defaultValue={sp.category ?? ""}
-            className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
-          >
-            <option value="">All categories</option>
-            {SHOW_CATEGORIES.map((category) => (
-              <option key={category} value={category}>
-                {category}
-              </option>
-            ))}
-          </select>
+            <select
+              name="category"
+              defaultValue={sp.category ?? ""}
+              className="rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
+            >
+              <option value="">All categories</option>
+              {SHOW_CATEGORIES.map((category) => (
+                <option key={category} value={category}>
+                  {category}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <button
-            type="submit"
-            className="inline-flex items-center justify-center rounded-2xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
-          >
-            Search
-          </button>
-
-          <label className="inline-flex items-center gap-2 text-sm text-slate-600">
-            <input
-              type="checkbox"
-              name="free"
-              value="1"
-              defaultChecked={sp.free === "1"}
-              className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-            />
-            Free admission only
-          </label>
+          {/* Free checkbox + Search button */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-600">
+              <input
+                type="checkbox"
+                name="free"
+                value="1"
+                defaultChecked={sp.free === "1"}
+                className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+              />
+              Free admission only
+            </label>
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-2xl bg-brand-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+            >
+              Search
+            </button>
+          </div>
         </form>
 
-        {hasFilters && (
-          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-            <span className="text-slate-500">Filters active</span>
-            <Link
-              href="/card-shows"
-              className="font-semibold text-brand-700 transition-colors hover:text-brand-800"
-            >
-              Clear filters
-            </Link>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            {hasFilters && (
+              <>
+                <span className="text-slate-500">Filters active</span>
+                <Link
+                  href="/card-shows"
+                  className="font-semibold text-brand-700 transition-colors hover:text-brand-800"
+                >
+                  Clear
+                </Link>
+              </>
+            )}
           </div>
-        )}
+          <NearMeButton isActive={isNearMe} radiusMiles={radiusMiles} />
+        </div>
       </section>
 
-      {!hasFilters && (
-        <section className="mt-8 rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h2 className="text-xl font-semibold text-slate-950">
-                Jump to a state page
-              </h2>
-              <p className="mt-2 text-sm text-slate-600">
-                State pages are the best entry point for SEO and for collectors
-                planning a local trip.
-              </p>
-            </div>
-            <Link
-              href="/submit-show"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-brand-700 transition-colors hover:text-brand-800"
-            >
-              Submit a show
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-          </div>
+      {!hasFilters && <StateDirectory states={US_STATES} />}
 
-          <div className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-            {US_STATES.map((state) => (
-              <Link
-                key={state.code}
-                href={`/card-shows/${state.slug}`}
-                className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-700"
-              >
-                {state.name}
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <section className="mt-10">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+<section className="mt-10">
+        <div className="flex items-center justify-between gap-3">
           <div>
-            <h2 className="text-2xl font-semibold text-slate-950">
-              {total.toLocaleString()} upcoming show{total === 1 ? "" : "s"}
+            <h2 className="text-xl font-semibold text-slate-950 sm:text-2xl">
+              {isNearMe
+                ? `${total} show${total === 1 ? "" : "s"} within ${radiusMiles} mi`
+                : `${total.toLocaleString()} upcoming show${total === 1 ? "" : "s"}`}
             </h2>
-            <p className="mt-2 text-sm text-slate-600">
-              {stateName
-                ? `Current results for ${stateName}.`
-                : "Results across the current Card Show Nation directory."}
+            <p className="mt-1 text-xs text-slate-500 sm:mt-2 sm:text-sm">
+              {isNearMe
+                ? "Sorted by distance."
+                : stateName
+                  ? `Results for ${stateName}.`
+                  : "Card Show Nation directory."}
             </p>
           </div>
+          <ViewToggle current={view} />
         </div>
 
         {shows.length === 0 ? (
           <div className="mt-6 rounded-[2rem] border border-dashed border-slate-300 bg-white p-10 text-center">
             <p className="text-lg font-semibold text-slate-900">
-              No shows match those filters.
+              {isNearMe ? `No shows found within ${radiusMiles} miles.` : "No shows match those filters."}
             </p>
             <p className="mt-3 text-sm leading-6 text-slate-600">
-              Try broadening the search, removing a category, or browsing a state page.
+              {isNearMe
+                ? "Try a larger radius or browse shows by state."
+                : "Try broadening the search, removing a category, or browsing a state page."}
             </p>
+          </div>
+        ) : view === "list" ? (
+          <div className="mt-6 flex flex-col gap-2">
+            {shows.map((show) => (
+              <ShowListItem key={show.id} show={show} />
+            ))}
           </div>
         ) : (
           <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
@@ -213,7 +230,7 @@ export default async function CardShowsPage({
         )}
       </section>
 
-      {totalPages > 1 && (
+      {!isNearMe && totalPages > 1 && (
         <div className="mt-10 flex items-center justify-center gap-3">
           {page > 1 && (
             <Link

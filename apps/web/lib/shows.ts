@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
+import { getCityCoords } from "@/lib/city-coords";
 import type { FixtureShow } from "@/lib/fixture-data";
 import {
   getAllFixtureShows,
@@ -500,6 +501,156 @@ export async function getAdminShows({
   ]);
 
   return { shows, total };
+}
+
+export async function getNearbyShows({
+  lat,
+  lng,
+  radiusMiles = 100,
+  limit = 48,
+}: {
+  lat: number;
+  lng: number;
+  radiusMiles?: number;
+  limit?: number;
+}) {
+  if (isFixtureMode()) {
+    return (await filterFixtureShows({}))
+      .sort(sortShows)
+      .slice(0, limit)
+      .map(projectShowCard);
+  }
+
+  const today = startOfToday();
+
+  type NearbyRow = {
+    id: string;
+    title: string;
+    slug: string;
+    city: string;
+    state: string;
+    startDate: Date;
+    endDate: Date;
+    startTimeLabel: string | null;
+    endTimeLabel: string | null;
+    isFree: boolean;
+    admissionPrice: string | null;
+    categories: string[];
+    flyerImageUrl: string | null;
+    tableCount: bigint | null;
+    vendorDetails: string | null;
+    featuredRank: bigint | null;
+    venueName: string | null;
+    distanceMiles: unknown;
+  };
+
+  const rows = await db.$queryRaw<NearbyRow[]>`
+    SELECT
+      s.id,
+      s.title,
+      s.slug,
+      s.city,
+      s.state,
+      s."startDate",
+      s."endDate",
+      s."startTimeLabel",
+      s."endTimeLabel",
+      s."isFree",
+      s."admissionPrice",
+      s.categories,
+      s."flyerImageUrl",
+      s."tableCount",
+      s."vendorDetails",
+      s."featuredRank",
+      v.name AS "venueName",
+      ROUND(
+        (3959.0 * acos(
+          LEAST(1.0, GREATEST(-1.0,
+            cos(radians(${lat})) * cos(radians(v.latitude)) *
+            cos(radians(v.longitude) - radians(${lng})) +
+            sin(radians(${lat})) * sin(radians(v.latitude))
+          ))
+        ))::numeric, 1
+      ) AS "distanceMiles"
+    FROM "Show" s
+    JOIN "Venue" v ON s."venueId" = v.id
+    WHERE s.status = 'APPROVED'
+      AND s."startDate" >= ${today}
+      AND (s."expiresAt" IS NULL OR s."expiresAt" >= ${today})
+      AND v.latitude IS NOT NULL
+      AND v.longitude IS NOT NULL
+      AND (3959.0 * acos(
+        LEAST(1.0, GREATEST(-1.0,
+          cos(radians(${lat})) * cos(radians(v.latitude)) *
+          cos(radians(v.longitude) - radians(${lng})) +
+          sin(radians(${lat})) * sin(radians(v.latitude))
+        ))
+      )) <= ${radiusMiles}
+    ORDER BY "distanceMiles" ASC, s."startDate" ASC
+    LIMIT ${limit}
+  `;
+
+  const venueResults = rows.map((row) => ({
+    id: row.id,
+    title: row.title,
+    slug: row.slug,
+    city: row.city,
+    state: row.state,
+    startDate: row.startDate,
+    endDate: row.endDate,
+    startTimeLabel: row.startTimeLabel,
+    endTimeLabel: row.endTimeLabel,
+    isFree: row.isFree,
+    admissionPrice: row.admissionPrice,
+    categories: row.categories,
+    flyerImageUrl: row.flyerImageUrl,
+    tableCount: row.tableCount !== null ? Number(row.tableCount) : null,
+    vendorDetails: row.vendorDetails,
+    featuredRank: row.featuredRank !== null ? Number(row.featuredRank) : null,
+    venue: row.venueName ? { name: row.venueName } : null,
+    distanceMiles: parseFloat(String(row.distanceMiles)),
+  }));
+
+  // Fallback: shows without venue coords — use city-level coordinates
+  const venueResultIds = new Set(venueResults.map((s) => s.id));
+
+  const noCoordShows = await db.show.findMany({
+    where: {
+      ...upcomingWhere(),
+      OR: [
+        { venueId: null },
+        { venue: { latitude: null } },
+        { venue: { longitude: null } },
+      ],
+    },
+    select: { ...showCardSelect, id: true },
+  });
+
+  function haversine(lat1: number, lng1: number, lat2: number, lng2: number) {
+    const R = 3959;
+    const dLat = ((lat2 - lat1) * Math.PI) / 180;
+    const dLng = ((lng2 - lng1) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  }
+
+  const cityFallback = noCoordShows
+    .filter((s) => !venueResultIds.has(s.id))
+    .flatMap((s) => {
+      const coords = getCityCoords(s.city, s.state);
+      if (!coords) return [];
+      const dist = haversine(lat, lng, coords.lat, coords.lng);
+      if (dist > radiusMiles) return [];
+      return [{ ...s, distanceMiles: Math.round(dist * 10) / 10 }];
+    });
+
+  return [...venueResults, ...cityFallback]
+    .sort((a, b) => a.distanceMiles - b.distanceMiles)
+    .slice(0, limit);
 }
 
 export async function getAdminShowById(id: string) {

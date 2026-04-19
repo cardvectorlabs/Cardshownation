@@ -71,7 +71,7 @@ const inputClass =
 
 export default function SubmitShowPage() {
   return (
-    <div className="container-narrow py-10">
+    <div className="container-narrow py-6 sm:py-10">
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
           Promoter submission
