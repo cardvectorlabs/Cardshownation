@@ -73,7 +73,7 @@ function SubmissionTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {submissions.map((submission) => {
+              {submissions.map((submission: (typeof submissions)[0]) => {
                 const payload = submission.payloadJson as Record<string, unknown>;
 
                 return (

@@ -98,7 +98,7 @@ export default async function AdminDashboardPage() {
             </div>
           ) : (
             <div className="space-y-3">
-              {pendingSubmissions.slice(0, 5).map((submission) => {
+              {pendingSubmissions.slice(0, 5).map((submission: (typeof pendingSubmissions)[0]) => {
                 const payload = submission.payloadJson as Record<string, unknown>;
                 return (
                   <div
