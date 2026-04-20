@@ -35,7 +35,7 @@ export async function createShowSubmission(input: {
     data: {
       submitterName: input.submitterName,
       submitterEmail: input.submitterEmail,
-      payloadJson: input.payloadJson as Prisma.InputJsonObject,
+      payloadJson: input.payloadJson as object,
       status: "PENDING",
     },
   });
