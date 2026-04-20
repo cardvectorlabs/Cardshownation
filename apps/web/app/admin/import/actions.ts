@@ -215,7 +215,7 @@ export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
   const allSlugs = parsed.map((r) => r.slug);
   const existingSlugs = new Set(
     (await db.show.findMany({ where: { slug: { in: allSlugs } }, select: { slug: true } }))
-      .map((s) => s.slug)
+      .map((s: { slug: string }) => s.slug)
   );
 
   // 4. Split into creates and updates
