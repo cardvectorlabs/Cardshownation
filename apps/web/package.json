@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@csn/db": "*",
     "@neondatabase/serverless": "0.10.0",
     "@prisma/adapter-neon": "5.22.0",
     "@prisma/client": "5.22.0",

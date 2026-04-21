@@ -27,6 +27,7 @@ build/
 
 # Prisma
 packages/db/node_modules
+packages/db/generated
 
 # Logs
 npm-debug.log*
