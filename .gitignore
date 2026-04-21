@@ -29,6 +29,9 @@ build/
 packages/db/node_modules
 packages/db/generated
 
+# Import data (contains PII — emails, phone numbers)
+packages/db/prisma/import-data
+
 # Logs
 npm-debug.log*
 yarn-debug.log*
