@@ -40,12 +40,12 @@ async function handleSubmission(formData: FormData) {
     city: getRequiredString("city"),
     state: getRequiredString("state"),
     venueName: getRequiredString("venueName"),
-    venueAddress: getRequiredString("venueAddress"),
+    venueAddress: getOptionalString("venueAddress"),
     categories: formData
       .getAll("categories")
       .filter((value): value is string => typeof value === "string"),
-    organizerName: getRequiredString("organizerName"),
-    organizerEmail: getRequiredString("organizerEmail"),
+    organizerName: submitterName,
+    organizerEmail: submitterEmail,
     description: getOptionalString("description"),
     tableCount: getOptionalString("tableCount"),
     vendorDetails: getOptionalString("vendorDetails"),
@@ -67,7 +67,7 @@ async function handleSubmission(formData: FormData) {
 }
 
 const inputClass =
-  "w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 placeholder-slate-400 focus:border-brand-400 focus:outline-none";
+  "w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 placeholder-slate-400 focus:border-brand-400 focus:outline-none";
 
 export default function SubmitShowPage() {
   return (
@@ -77,13 +77,26 @@ export default function SubmitShowPage() {
           Promoter submission
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950">
-          Submit a card show
+          List your card show — free
         </h1>
-        <p className="mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-          Send the core event info now and Card Show Nation can review it before
-          publishing. This flow is intentionally simple for the MVP and is ready
-          to grow into a fuller organizer workflow later.
+        <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+          Reach collectors searching for shows in your city. Takes under a
+          minute. No account needed. We review and publish within 24 hours.
         </p>
+        <ul className="mt-5 grid gap-2 text-sm text-slate-700 sm:grid-cols-3">
+          <li className="flex items-center gap-2">
+            <span aria-hidden className="text-brand-600">✓</span>
+            Free listing
+          </li>
+          <li className="flex items-center gap-2">
+            <span aria-hidden className="text-brand-600">✓</span>
+            Live within 24 hours
+          </li>
+          <li className="flex items-center gap-2">
+            <span aria-hidden className="text-brand-600">✓</span>
+            No account needed
+          </li>
+        </ul>
       </div>
 
       <form action={handleSubmission} className="mt-8 space-y-8">
@@ -240,15 +253,14 @@ export default function SubmitShowPage() {
 
             <div>
               <label htmlFor="venueAddress" className="mb-2 block text-sm font-medium text-slate-700">
-                Street address *
+                Street address (optional)
               </label>
               <input
                 id="venueAddress"
                 name="venueAddress"
                 type="text"
-                required
                 className={inputClass}
-                placeholder="123 Main St"
+                placeholder="123 Main St — leave blank if unsure"
               />
             </div>
 
@@ -291,36 +303,9 @@ export default function SubmitShowPage() {
 
         <fieldset className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
           <legend className="px-2 text-sm font-semibold text-slate-700">
-            Organizer and vendor info
+            Vendor info (optional)
           </legend>
           <div className="mt-2 space-y-5">
-            <div className="grid gap-5 sm:grid-cols-2">
-              <div>
-                <label htmlFor="organizerName" className="mb-2 block text-sm font-medium text-slate-700">
-                  Organizer name *
-                </label>
-                <input
-                  id="organizerName"
-                  name="organizerName"
-                  type="text"
-                  required
-                  className={inputClass}
-                />
-              </div>
-              <div>
-                <label htmlFor="organizerEmail" className="mb-2 block text-sm font-medium text-slate-700">
-                  Organizer email *
-                </label>
-                <input
-                  id="organizerEmail"
-                  name="organizerEmail"
-                  type="email"
-                  required
-                  className={inputClass}
-                />
-              </div>
-            </div>
-
             <div className="grid gap-5 sm:grid-cols-2">
               <div>
                 <label htmlFor="tableCount" className="mb-2 block text-sm font-medium text-slate-700">
@@ -330,6 +315,7 @@ export default function SubmitShowPage() {
                   id="tableCount"
                   name="tableCount"
                   type="number"
+                  inputMode="numeric"
                   min="1"
                   className={inputClass}
                   placeholder="80"
@@ -378,11 +364,17 @@ export default function SubmitShowPage() {
           </div>
         </fieldset>
 
-        <fieldset className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-          <legend className="px-2 text-sm font-semibold text-slate-700">
-            Admission
-          </legend>
-          <div className="mt-2 space-y-5">
+        <details className="group rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
+          <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-semibold text-slate-700">
+            <span>Add admission details (optional)</span>
+            <span
+              aria-hidden
+              className="text-slate-400 transition-transform group-open:rotate-180"
+            >
+              ▾
+            </span>
+          </summary>
+          <div className="mt-5 space-y-5">
             <div className="flex flex-wrap gap-5 text-sm text-slate-700">
               <label className="flex items-center gap-2">
                 <input
@@ -432,18 +424,18 @@ export default function SubmitShowPage() {
               </div>
             </div>
           </div>
-        </fieldset>
+        </details>
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-slate-500">
-            Submissions are reviewed before publishing. Approval can later feed
-            organizer tools, featured listings, and repeat-event workflows.
+            Free listing. We review and publish within 24 hours. We&apos;ll
+            only email you if we need to clarify something.
           </p>
           <button
             type="submit"
             className="inline-flex items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
           >
-            Submit show for review
+            Submit show · Free
           </button>
         </div>
       </form>
