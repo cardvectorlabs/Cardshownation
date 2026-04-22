@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, LocateFixed, MapPin, X } from "lucide-react";
+import { DEFAULT_NEARBY_RADIUS, NEARBY_RADIUS_OPTIONS, normalizeNearbyRadius } from "@/lib/nearby-radius";
 import { cn } from "@/lib/utils";
 
 type GeoipLocation = {
@@ -104,7 +105,7 @@ export function NearMeButton({
   isActive,
   align = "end",
   label = "Near me",
-  radiusMiles = 100,
+  radiusMiles = DEFAULT_NEARBY_RADIUS,
   tone = "light",
 }: NearMeButtonProps) {
   const router = useRouter();
@@ -119,6 +120,7 @@ export function NearMeButton({
     tone === "dark" ? "text-slate-400" : "text-slate-500";
   const errorTone =
     tone === "dark" ? "text-rose-300" : "text-red-500";
+  const selectedRadiusMiles = normalizeNearbyRadius(radiusMiles);
 
   useEffect(() => {
     if (isActive || ipLocation) {
@@ -245,6 +247,38 @@ export function NearMeButton({
         </p>
       )}
       {error && <p className={cn("max-w-xs text-xs", errorTone)}>{error}</p>}
+      <label className={cn("flex items-center gap-2 text-xs font-medium", helperTone)}>
+        <span>Distance</span>
+        <select
+          value={String(selectedRadiusMiles)}
+          disabled={loading}
+          onChange={(event) => {
+            const nextRadius = normalizeNearbyRadius(event.target.value);
+            const params = new URLSearchParams(searchParams.toString());
+
+            if (!isActive) {
+              params.set("radius", String(nextRadius));
+              router.replace(`/card-shows?${params.toString()}`);
+              return;
+            }
+
+            params.set("radius", String(nextRadius));
+            router.push(`/card-shows?${params.toString()}`);
+          }}
+          className={cn(
+            "rounded-full border bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors focus:outline-none",
+            tone === "dark"
+              ? "border-white/15 bg-white/5 text-white focus:border-brand-300"
+              : "border-slate-200 focus:border-brand-400"
+          )}
+        >
+          {NEARBY_RADIUS_OPTIONS.map((option) => (
+            <option key={option} value={option}>
+              {option} mi
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }

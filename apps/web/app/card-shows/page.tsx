@@ -5,6 +5,7 @@ import { ShowCard } from "@/components/shows/show-card";
 import { ShowListItem } from "@/components/shows/show-list-item";
 import { NearMeButton } from "@/components/shows/near-me-button";
 import { ViewToggle } from "@/components/shows/view-toggle";
+import { DEFAULT_NEARBY_RADIUS, normalizeNearbyRadius } from "@/lib/nearby-radius";
 import { SHOW_CATEGORIES, getUpcomingShows, getNearbyShows } from "@/lib/shows";
 import { US_STATES, getStateByCode } from "@/lib/states";
 import { StateDirectory } from "@/components/shows/state-directory";
@@ -57,7 +58,7 @@ export default async function CardShowsPage({
   const isNearMe = Boolean(sp.lat && sp.lng);
   const lat = parseFloat(sp.lat ?? "");
   const lng = parseFloat(sp.lng ?? "");
-  const radiusMiles = parseInt(sp.radius ?? "100") || 100;
+  const radiusMiles = normalizeNearbyRadius(sp.radius ?? String(DEFAULT_NEARBY_RADIUS));
   const locationSource = sp.source === "gps" || sp.source === "ip" ? sp.source : null;
   const nearLabel = sp.near?.trim() ? sp.near.trim().slice(0, 80) : null;
 
@@ -91,12 +92,12 @@ export default async function CardShowsPage({
   const view = sp.view === "grid" ? "grid" : "list";
   const nearMeDescription =
     locationSource === "gps"
-      ? "Sorted by distance from your device location."
+      ? "Using your device location, sorted by upcoming date."
       : locationSource === "ip" && nearLabel
-        ? `Sorted by distance from an approximate location near ${nearLabel}.`
+        ? `Using an approximate location near ${nearLabel}, sorted by upcoming date.`
         : locationSource === "ip"
-          ? "Sorted by distance from an approximate network location."
-          : "Sorted by distance from your selected location.";
+          ? "Using an approximate network location, sorted by upcoming date."
+          : "Using your selected location, sorted by upcoming date.";
   const locationSourceLabel =
     locationSource === "gps"
       ? "Precise GPS"

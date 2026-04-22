@@ -1,3 +1,4 @@
+import { Prisma } from "@csn/db";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
 import { getCityCoords } from "@/lib/city-coords";
@@ -55,7 +56,22 @@ function upcomingWhere() {
   };
 }
 
-function sortShows(a: { featuredRank: number | null; startDate: Date }, b: { featuredRank: number | null; startDate: Date }) {
+function compareKansasPriority(aState: string, bState: string) {
+  if (aState === "KS" && bState !== "KS") {
+    return -1;
+  }
+
+  if (aState !== "KS" && bState === "KS") {
+    return 1;
+  }
+
+  return aState.localeCompare(bState);
+}
+
+function sortShows(
+  a: { featuredRank: number | null; startDate: Date; state: string; city: string; title: string },
+  b: { featuredRank: number | null; startDate: Date; state: string; city: string; title: string }
+) {
   const featuredA = a.featuredRank ?? Number.POSITIVE_INFINITY;
   const featuredB = b.featuredRank ?? Number.POSITIVE_INFINITY;
 
@@ -63,7 +79,22 @@ function sortShows(a: { featuredRank: number | null; startDate: Date }, b: { fea
     return featuredA - featuredB;
   }
 
-  return a.startDate.getTime() - b.startDate.getTime();
+  const startDateDiff = a.startDate.getTime() - b.startDate.getTime();
+  if (startDateDiff !== 0) {
+    return startDateDiff;
+  }
+
+  const stateDiff = compareKansasPriority(a.state, b.state);
+  if (stateDiff !== 0) {
+    return stateDiff;
+  }
+
+  const cityDiff = a.city.localeCompare(b.city);
+  if (cityDiff !== 0) {
+    return cityDiff;
+  }
+
+  return a.title.localeCompare(b.title);
 }
 
 function isUpcomingFixtureShow(show: FixtureShow) {
@@ -189,12 +220,34 @@ export async function getUpcomingShows({
     };
   }
 
+  const today = startOfToday();
   const where: any = upcomingWhere();
+  const clauses: Prisma.Sql[] = [
+    Prisma.sql`s.status = 'APPROVED'`,
+    Prisma.sql`s."startDate" >= ${today}`,
+    Prisma.sql`(s."expiresAt" IS NULL OR s."expiresAt" >= ${today})`,
+  ];
 
-  if (state) where.state = state;
-  if (city) where.city = { contains: city, mode: "insensitive" };
-  if (category) where.categories = { has: category };
-  if (isFree !== undefined) where.isFree = isFree;
+  if (state) {
+    where.state = state;
+    clauses.push(Prisma.sql`s.state = ${state}`);
+  }
+
+  if (city) {
+    where.city = { contains: city, mode: "insensitive" };
+    clauses.push(Prisma.sql`s.city ILIKE ${`%${city}%`}`);
+  }
+
+  if (category) {
+    where.categories = { has: category };
+    clauses.push(Prisma.sql`${category} = ANY(s.categories)`);
+  }
+
+  if (isFree !== undefined) {
+    where.isFree = isFree;
+    clauses.push(Prisma.sql`s."isFree" = ${isFree}`);
+  }
+
   if (q) {
     where.AND = [
       {
@@ -207,16 +260,91 @@ export async function getUpcomingShows({
         ],
       },
     ];
+
+    const pattern = `%${q}%`;
+    clauses.push(Prisma.sql`(
+      s.title ILIKE ${pattern}
+      OR s.city ILIKE ${pattern}
+      OR COALESCE(s.description, '') ILIKE ${pattern}
+      OR COALESCE(v.name, '') ILIKE ${pattern}
+      OR COALESCE(o.name, '') ILIKE ${pattern}
+    )`);
   }
 
+  type UpcomingRow = {
+    id: string;
+    title: string;
+    slug: string;
+    city: string;
+    state: string;
+    startDate: Date;
+    endDate: Date;
+    startTimeLabel: string | null;
+    endTimeLabel: string | null;
+    isFree: boolean;
+    admissionPrice: string | null;
+    categories: string[];
+    flyerImageUrl: string | null;
+    tableCount: number | null;
+    vendorDetails: string | null;
+    featuredRank: number | null;
+    venueName: string | null;
+  };
+
   const [shows, total] = await Promise.all([
-    db.show.findMany({
-      where,
-      orderBy: [{ featuredRank: "asc" }, { startDate: "asc" }],
-      take: limit,
-      skip: offset,
-      select: showCardSelect,
-    }),
+    db.$queryRaw<UpcomingRow[]>(Prisma.sql`
+      SELECT
+        s.id,
+        s.title,
+        s.slug,
+        s.city,
+        s.state,
+        s."startDate",
+        s."endDate",
+        s."startTimeLabel",
+        s."endTimeLabel",
+        s."isFree",
+        s."admissionPrice",
+        s.categories,
+        s."flyerImageUrl",
+        s."tableCount",
+        s."vendorDetails",
+        s."featuredRank",
+        v.name AS "venueName"
+      FROM "Show" s
+      LEFT JOIN "Venue" v ON v.id = s."venueId"
+      LEFT JOIN "Organizer" o ON o.id = s."organizerId"
+      WHERE ${Prisma.join(clauses, Prisma.sql` AND `)}
+      ORDER BY
+        COALESCE(s."featuredRank", 2147483647) ASC,
+        s."startDate" ASC,
+        CASE WHEN s.state = 'KS' THEN 0 ELSE 1 END ASC,
+        s.state ASC,
+        s.city ASC,
+        s.title ASC
+      LIMIT ${limit}
+      OFFSET ${offset}
+    `).then((rows) =>
+      rows.map((row) => ({
+        id: row.id,
+        title: row.title,
+        slug: row.slug,
+        city: row.city,
+        state: row.state,
+        startDate: row.startDate,
+        endDate: row.endDate,
+        startTimeLabel: row.startTimeLabel,
+        endTimeLabel: row.endTimeLabel,
+        isFree: row.isFree,
+        admissionPrice: row.admissionPrice,
+        categories: row.categories,
+        flyerImageUrl: row.flyerImageUrl,
+        tableCount: row.tableCount,
+        vendorDetails: row.vendorDetails,
+        featuredRank: row.featuredRank,
+        venue: row.venueName ? { name: row.venueName } : null,
+      }))
+    ),
     db.show.count({ where }),
   ]);
 
@@ -586,7 +714,13 @@ export async function getNearbyShows({
           sin(radians(${lat})) * sin(radians(v.latitude))
         ))
       )) <= ${radiusMiles}
-    ORDER BY "distanceMiles" ASC, s."startDate" ASC
+    ORDER BY
+      COALESCE(s."featuredRank", 2147483647) ASC,
+      s."startDate" ASC,
+      CASE WHEN s.state = 'KS' THEN 0 ELSE 1 END ASC,
+      s.state ASC,
+      s.city ASC,
+      s.title ASC
     LIMIT ${limit}
   `;
 
@@ -649,7 +783,7 @@ export async function getNearbyShows({
     });
 
   return [...venueResults, ...cityFallback]
-    .sort((a, b) => a.distanceMiles - b.distanceMiles)
+    .sort(sortShows)
     .slice(0, limit);
 }
 
