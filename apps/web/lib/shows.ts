@@ -291,6 +291,12 @@ export async function getUpcomingShows({
     venueName: string | null;
   };
 
+  const [firstClause, ...remainingClauses] = clauses;
+  const whereClause = remainingClauses.reduce(
+    (sql, clause) => Prisma.sql`${sql} AND ${clause}`,
+    firstClause ?? Prisma.sql`TRUE`
+  );
+
   const [shows, total] = await Promise.all([
     db.$queryRaw<UpcomingRow[]>(Prisma.sql`
       SELECT
@@ -314,7 +320,7 @@ export async function getUpcomingShows({
       FROM "Show" s
       LEFT JOIN "Venue" v ON v.id = s."venueId"
       LEFT JOIN "Organizer" o ON o.id = s."organizerId"
-      WHERE ${Prisma.join(clauses, Prisma.sql` AND `)}
+      WHERE ${whereClause}
       ORDER BY
         COALESCE(s."featuredRank", 2147483647) ASC,
         s."startDate" ASC,
