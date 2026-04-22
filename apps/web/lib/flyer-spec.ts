@@ -1,0 +1,3 @@
+export const FLYER_MAX_SIZE_BYTES = 2 * 1024 * 1024;
+export const FLYER_REQUIRED_WIDTH = 1200;
+export const FLYER_REQUIRED_HEIGHT = 1600;

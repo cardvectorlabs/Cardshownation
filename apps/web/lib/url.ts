@@ -12,8 +12,12 @@ export function normalizeExternalUrl(value: string | null | undefined) {
     return null;
   }
 
+  const candidate = /^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(trimmed)
+    ? trimmed
+    : `https://${trimmed}`;
+
   try {
-    const url = new URL(trimmed);
+    const url = new URL(candidate);
     if (!ALLOWED_EXTERNAL_PROTOCOLS.has(url.protocol)) {
       return null;
     }

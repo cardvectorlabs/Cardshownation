@@ -42,6 +42,13 @@ export function Header() {
               <span className="sm:hidden">Browse</span>
             </Link>
             <Link
+              href="/promoter"
+              className="inline-flex items-center rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+            >
+              <span className="hidden sm:inline">Promoter Portal</span>
+              <span className="sm:hidden">Portal</span>
+            </Link>
+            <Link
               href="/submit-show"
               className="inline-flex items-center rounded-full bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
             >

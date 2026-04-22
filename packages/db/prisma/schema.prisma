@@ -43,11 +43,13 @@ model User {
   id         String     @id @default(cuid())
   name       String?
   email      String     @unique
+  passwordHash String?
   role       UserRole   @default(FAN)
   createdAt  DateTime   @default(now())
   updatedAt  DateTime   @updatedAt
   savedShows SavedShow[]
   reports    ShowReport[]
+  organizer  Organizer?
 }
 
 model Organizer {
@@ -58,9 +60,29 @@ model Organizer {
   facebookUrl  String?
   instagramUrl String?
   verified     Boolean  @default(false)
+  userId       String?  @unique
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
   shows        Show[]
+  approvals    OrganizerApproval[]
+  user         User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+model OrganizerApproval {
+  id                String   @id @default(cuid())
+  organizerId       String
+  city              String
+  state             String
+  autoApprove       Boolean  @default(false)
+  reviewEvery       Int      @default(4)
+  approvedShowCount Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organizer Organizer @relation(fields: [organizerId], references: [id], onDelete: Cascade)
+
+  @@unique([organizerId, city, state])
+  @@index([state, city])
 }
 
 model Venue {

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, ListChecks, Send, Upload, RefreshCw } from "lucide-react";
+import { LayoutDashboard, ListChecks, Send, Upload, RefreshCw, Users } from "lucide-react";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -17,6 +17,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
             { href: "/admin/submissions", label: "Submissions", icon: Send },
             { href: "/admin/shows", label: "All Shows", icon: ListChecks },
+            { href: "/admin/promoters", label: "Promoters", icon: Users },
             { href: "/admin/import", label: "Import CSV", icon: Upload },
             { href: "/admin/imports", label: "Auto-Import", icon: RefreshCw },
           ].map(({ href, label, icon: Icon }) => (
