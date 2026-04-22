@@ -1,7 +1,10 @@
 {
   "name": "card-show-nation",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
   "scripts": {
     "dev": "turbo run dev",
     "build": "turbo run build",
@@ -14,9 +17,9 @@
     "db:studio": "cd packages/db && npx prisma studio"
   },
   "devDependencies": {
+    "@types/node": "^20.14.0",
     "turbo": "^2.3.0",
-    "typescript": "^5.5.0",
-    "@types/node": "^20.14.0"
+    "typescript": "^5.5.0"
   },
   "overrides": {
     "@typescript-eslint/eslint-plugin": "7.18.0",
@@ -28,5 +31,10 @@
   "packageManager": "npm@10.8.0",
   "engines": {
     "node": ">=20.0.0"
+  },
+  "dependencies": {
+    "@neondatabase/serverless": "^1.1.0",
+    "@prisma/adapter-neon": "^7.7.0",
+    "ws": "^8.20.0"
   }
 }
