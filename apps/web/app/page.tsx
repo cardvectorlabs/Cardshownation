@@ -16,8 +16,14 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const [upcomingShows, stats] = await Promise.all([
-    getUpcomingShows({ limit: 8 }),
-    getHomepageDirectoryStats(),
+    getUpcomingShows({ limit: 8 }).catch((err) => {
+      console.error("[HomePage] getUpcomingShows failed, rendering empty list:", err);
+      return { shows: [], total: 0 };
+    }),
+    getHomepageDirectoryStats().catch((err) => {
+      console.error("[HomePage] getHomepageDirectoryStats failed, rendering zeros:", err);
+      return { upcomingShows: 0, activeStates: 0, activeOrganizers: 0 };
+    }),
   ]);
 
   const jsonLd = {
