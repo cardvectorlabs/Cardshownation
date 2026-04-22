@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search } from "lucide-react";
+import { LocateFixed, Search } from "lucide-react";
 import { ShowCard } from "@/components/shows/show-card";
 import { ShowListItem } from "@/components/shows/show-list-item";
 import { NearMeButton } from "@/components/shows/near-me-button";
@@ -28,6 +28,8 @@ type SearchParams = {
   lat?: string;
   lng?: string;
   radius?: string;
+  source?: string;
+  near?: string;
   view?: string;
 };
 
@@ -56,6 +58,8 @@ export default async function CardShowsPage({
   const lat = parseFloat(sp.lat ?? "");
   const lng = parseFloat(sp.lng ?? "");
   const radiusMiles = parseInt(sp.radius ?? "100") || 100;
+  const locationSource = sp.source === "gps" || sp.source === "ip" ? sp.source : null;
+  const nearLabel = sp.near?.trim() ? sp.near.trim().slice(0, 80) : null;
 
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const limit = 18;
@@ -85,6 +89,20 @@ export default async function CardShowsPage({
   const hasFilters = Boolean(sp.state || sp.city || sp.category || sp.free || sp.q || isNearMe);
   const stateName = getStateByCode(sp.state)?.name;
   const view = sp.view === "grid" ? "grid" : "list";
+  const nearMeDescription =
+    locationSource === "gps"
+      ? "Sorted by distance from your device location."
+      : locationSource === "ip" && nearLabel
+        ? `Sorted by distance from an approximate location near ${nearLabel}.`
+        : locationSource === "ip"
+          ? "Sorted by distance from an approximate network location."
+          : "Sorted by distance from your selected location.";
+  const locationSourceLabel =
+    locationSource === "gps"
+      ? "Precise GPS"
+      : nearLabel
+        ? `Approx near ${nearLabel}`
+        : "Approximate location";
 
 
   return (
@@ -97,9 +115,8 @@ export default async function CardShowsPage({
           {stateName ? `${stateName} card shows` : "Browse upcoming card shows"}
         </h1>
         <p className="mt-4 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-          Search by show name, city, promoter, or venue. State pages carry the
-          strongest SEO value, while this directory page handles broader
-          filtering and discovery.
+          Search by show name, city, promoter, or venue. Use Near me to sort by
+          distance with GPS first and approximate IP lookup as the fallback.
         </p>
 
         <form action="/card-shows" method="GET" className="mt-6 space-y-3">
@@ -185,7 +202,7 @@ export default async function CardShowsPage({
 
       {!hasFilters && <StateDirectory states={US_STATES} />}
 
-<section className="mt-10">
+      <section className="mt-10">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-xl font-semibold text-slate-950 sm:text-2xl">
@@ -193,13 +210,21 @@ export default async function CardShowsPage({
                 ? `${total} show${total === 1 ? "" : "s"} within ${radiusMiles} mi`
                 : `${total.toLocaleString()} upcoming show${total === 1 ? "" : "s"}`}
             </h2>
-            <p className="mt-1 text-xs text-slate-500 sm:mt-2 sm:text-sm">
-              {isNearMe
-                ? "Sorted by distance."
-                : stateName
-                  ? `Results for ${stateName}.`
-                  : "Card Show Nation directory."}
-            </p>
+            <div className="mt-1 flex flex-wrap items-center gap-2 sm:mt-2">
+              <p className="text-xs text-slate-500 sm:text-sm">
+                {isNearMe
+                  ? nearMeDescription
+                  : stateName
+                    ? `Results for ${stateName}.`
+                    : "Card Show Nation directory."}
+              </p>
+              {isNearMe && locationSource && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700">
+                  <LocateFixed className="h-3 w-3" />
+                  {locationSourceLabel}
+                </span>
+              )}
+            </div>
           </div>
           <ViewToggle current={view} />
         </div>

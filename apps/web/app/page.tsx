@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Search } from "lucide-react";
+import { NearMeButton } from "@/components/shows/near-me-button";
 import { ShowListItem } from "@/components/shows/show-list-item";
 import { getHomepageDirectoryStats, getUpcomingShows } from "@/lib/shows";
 import { US_STATES } from "@/lib/states";
@@ -52,7 +53,8 @@ export default async function HomePage() {
             Find card shows near you.
           </h1>
           <p className="mt-2 text-slate-400">
-            {stats.upcomingShows} upcoming shows across {stats.activeStates} states.
+            {stats.upcomingShows} upcoming shows across {stats.activeStates} states. Use your
+            location first, then widen out by city or state.
           </p>
 
           <form action="/card-shows" method="GET" className="mt-6 flex gap-2 max-w-xl">
@@ -73,20 +75,29 @@ export default async function HomePage() {
             </button>
           </form>
 
-          <div className="mt-4 flex gap-3">
-            <Link
-              href="/card-shows"
-              className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
-            >
-              Browse all shows
-              <ArrowRight className="h-4 w-4" />
-            </Link>
-            <Link
-              href="/submit-show"
-              className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Submit a show
-            </Link>
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <NearMeButton
+              isActive={false}
+              label="Use my location"
+              tone="dark"
+              align="start"
+            />
+
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/card-shows"
+                className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
+              >
+                Browse all shows
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+              <Link
+                href="/submit-show"
+                className="inline-flex items-center gap-2 rounded-full border border-white/20 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+              >
+                Submit a show
+              </Link>
+            </div>
           </div>
         </div>
       </section>
