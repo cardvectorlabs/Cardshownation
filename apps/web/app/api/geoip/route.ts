@@ -1,14 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { consumeRateLimit } from "@/lib/rate-limit";
+import { getRequestIp, isLocalIp } from "@/lib/request-ip";
 
 export async function GET(req: NextRequest) {
-  const forwarded = req.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() ?? req.headers.get("x-real-ip") ?? "";
+  const ip = getRequestIp(req.headers);
 
-  const isLocal =
-    !ip || ip === "127.0.0.1" || ip === "::1" || ip.startsWith("192.168.") || ip.startsWith("10.");
-
-  if (isLocal) {
+  if (isLocalIp(ip)) {
     return NextResponse.json({ lat: null, lng: null, city: null, error: "local" });
+  }
+
+  const rateLimit = consumeRateLimit("geoip", ip ?? "unknown", {
+    blockMs: 15 * 60 * 1000,
+    maxAttempts: 30,
+    windowMs: 15 * 60 * 1000,
+  });
+
+  if (!rateLimit.allowed) {
+    return NextResponse.json({ lat: null, lng: null, error: "rate limited" }, { status: 429 });
   }
 
   try {

@@ -1,7 +1,9 @@
 "use server";
 
+import { requireAdminSession } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { getCityCoords } from "@/lib/city-coords";
+import { normalizeExternalUrl } from "@/lib/url";
 
 export type ImportRow = {
   title: string;
@@ -96,7 +98,17 @@ type ParsedRow = {
 };
 
 export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
+  await requireAdminSession("/admin/import");
+
   const errors: Array<{ row: number; message: string }> = [];
+  if (rows.length > 500) {
+    return {
+      imported: 0,
+      updated: 0,
+      errors: [{ row: 1, message: "Import limited to 500 rows per run." }],
+    };
+  }
+
   const now = new Date();
 
   // 1. Parse and validate all rows up front
@@ -118,6 +130,14 @@ export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
       const endDate = parseDate(row.endDate) ?? startDate;
       const isFree = parseBool(row.isFree);
       const categories = row.categories.split(",").map((c) => c.trim()).filter(Boolean);
+      const websiteUrl = normalizeExternalUrl(row.websiteUrl.trim());
+      const facebookUrl = normalizeExternalUrl(row.facebookUrl.trim());
+      if (row.websiteUrl.trim() && !websiteUrl) {
+        throw new Error(`invalid websiteUrl "${row.websiteUrl}"`);
+      }
+      if (row.facebookUrl.trim() && !facebookUrl) {
+        throw new Error(`invalid facebookUrl "${row.facebookUrl}"`);
+      }
       const slug = generateSlug(row.title.trim(), row.city.trim(), startDate);
       const state = row.state.trim().toUpperCase();
       const city = row.city.trim();
@@ -147,8 +167,8 @@ export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
           admissionNotes: row.admissionNotes.trim() || null,
           tableCount: row.tableCount.trim() ? parseInt(row.tableCount, 10) : null,
           vendorDetails: row.vendorDetails.trim() || null,
-          websiteUrl: row.websiteUrl.trim() || null,
-          facebookUrl: row.facebookUrl.trim() || null,
+          websiteUrl,
+          facebookUrl,
           categories,
           lastVerifiedAt: now,
           expiresAt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
@@ -191,15 +211,18 @@ export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
           const venueCity = originalRow?.city.trim() ?? city;
           const venueState = state.toUpperCase();
           const coords = getCityCoords(venueCity, venueState);
-          return db.venue.create({
-            data: {
-              name: originalRow?.venueName.trim() ?? name,
-              address1: originalRow?.venueAddress.trim() || originalRow?.venueName.trim() || name,
+          const venueName = originalRow?.venueName.trim() ?? name;
+          return db.venue.upsert({
+            where: { name_city_state: { name: venueName, city: venueCity, state: venueState } },
+            create: {
+              name: venueName,
+              address1: originalRow?.venueAddress.trim() || venueName,
               city: venueCity,
               state: venueState,
               latitude: coords?.lat ?? null,
               longitude: coords?.lng ?? null,
             },
+            update: {},
             select: { id: true, name: true, city: true, state: true },
           });
         })

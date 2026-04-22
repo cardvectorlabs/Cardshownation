@@ -9,6 +9,7 @@ import {
   rejectFixtureSubmission,
 } from "@/lib/fixture-store";
 import { slugify } from "@/lib/utils";
+import { normalizeExternalUrl } from "@/lib/url";
 
 function readString(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
@@ -81,6 +82,11 @@ export async function approveShowSubmission(submissionId: string) {
   });
 
   if (!submission) return null;
+  if (submission.status !== "PENDING") {
+    return submission.reviewedShowId
+      ? db.show.findUnique({ where: { id: submission.reviewedShowId } })
+      : null;
+  }
 
   const payload = submission.payloadJson as Record<string, unknown>;
   const organizerName = readString(payload, "organizerName");
@@ -103,8 +109,8 @@ export async function approveShowSubmission(submissionId: string) {
         data: {
           name: organizerName,
           email: readString(payload, "organizerEmail"),
-          websiteUrl: readString(payload, "websiteUrl"),
-          facebookUrl: readString(payload, "facebookUrl"),
+          websiteUrl: normalizeExternalUrl(readString(payload, "websiteUrl")),
+          facebookUrl: normalizeExternalUrl(readString(payload, "facebookUrl")),
         },
       }));
 
@@ -112,29 +118,20 @@ export async function approveShowSubmission(submissionId: string) {
   }
 
   if (venueName && venueAddress) {
-    const existingVenue = await db.venue.findFirst({
-      where: {
+    const coords = getCityCoords(city, state);
+    const venue = await db.venue.upsert({
+      where: { name_city_state: { name: venueName, city, state } },
+      create: {
         name: venueName,
         address1: venueAddress,
         city,
         state,
+        parkingInfo: readString(payload, "parkingInfo"),
+        latitude: coords?.lat ?? null,
+        longitude: coords?.lng ?? null,
       },
+      update: {},
     });
-
-    const coords = getCityCoords(city, state);
-    const venue =
-      existingVenue ??
-      (await db.venue.create({
-        data: {
-          name: venueName,
-          address1: venueAddress,
-          city,
-          state,
-          parkingInfo: readString(payload, "parkingInfo"),
-          latitude: coords?.lat ?? null,
-          longitude: coords?.lng ?? null,
-        },
-      }));
 
     venueId = venue.id;
   }
@@ -171,8 +168,8 @@ export async function approveShowSubmission(submissionId: string) {
       description: readString(payload, "description"),
       tableCount: Number.parseInt(readString(payload, "tableCount") ?? "", 10) || null,
       vendorDetails: readString(payload, "vendorDetails"),
-      websiteUrl: readString(payload, "websiteUrl"),
-      facebookUrl: readString(payload, "facebookUrl"),
+      websiteUrl: normalizeExternalUrl(readString(payload, "websiteUrl")),
+      facebookUrl: normalizeExternalUrl(readString(payload, "facebookUrl")),
       isFree: payload.isFree === true,
       admissionPrice: readString(payload, "admissionPrice"),
       admissionNotes: readString(payload, "admissionNotes"),

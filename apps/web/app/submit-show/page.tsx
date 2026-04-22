@@ -1,9 +1,13 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SubmitShowFormSteps } from "@/components/submit/submit-show-form-steps";
+import { consumeRateLimit } from "@/lib/rate-limit";
+import { getRequestIp } from "@/lib/request-ip";
 import { SHOW_CATEGORIES } from "@/lib/shows";
 import { US_STATES } from "@/lib/states";
 import { createShowSubmission } from "@/lib/submissions";
+import { normalizeExternalUrl } from "@/lib/url";
 
 export const metadata: Metadata = {
   title: "Submit a Card Show",
@@ -11,62 +15,134 @@ export const metadata: Metadata = {
     "Submit a sports card, Pokemon, or TCG show to Card Show Nation for review.",
 };
 
+const MAX_SUBMISSIONS_PER_HOUR = 5;
+const SUBMISSION_WINDOW_MS = 60 * 60 * 1000;
+
+function isValidEmail(value: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+}
+
+function isValidDateInput(value: string) {
+  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+}
+
+function readRequiredString(formData: FormData, key: string, maxLength: number) {
+  const value = formData.get(key);
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed || trimmed.length > maxLength) {
+    return "";
+  }
+
+  return trimmed;
+}
+
+function readOptionalString(formData: FormData, key: string, maxLength: number) {
+  const value = formData.get(key);
+  if (typeof value !== "string") {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (trimmed.length > maxLength) {
+    throw new Error(`${key} is too long`);
+  }
+
+  return trimmed;
+}
+
 async function handleSubmission(formData: FormData) {
   "use server";
+  const honeypot = formData.get("companyWebsite");
+  if (typeof honeypot === "string" && honeypot.trim()) {
+    redirect("/submit-show/thank-you");
+  }
 
-  const getRequiredString = (key: string) => {
-    const value = formData.get(key);
-    return typeof value === "string" ? value.trim() : "";
-  };
-
-  const getOptionalString = (key: string) => {
-    const value = formData.get(key);
-    if (typeof value !== "string") return null;
-
-    const trimmedValue = value.trim();
-    return trimmedValue.length > 0 ? trimmedValue : null;
-  };
-
-  const submitterEmail = getRequiredString("submitterEmail");
-  const submitterNameInput = getOptionalString("submitterName");
-
-  if (!submitterEmail) return;
-
-  const submitterName = submitterNameInput ?? deriveSubmitterName(submitterEmail);
-  const startDate = getRequiredString("startDate");
-  const endDate = getRequiredString("endDate") || startDate;
-
-  const payload = {
-    showName: getRequiredString("showName"),
-    startDate,
-    endDate,
-    startTimeLabel: getOptionalString("startTimeLabel"),
-    endTimeLabel: getOptionalString("endTimeLabel"),
-    city: getRequiredString("city"),
-    state: getRequiredString("state"),
-    venueName: getRequiredString("venueName"),
-    venueAddress: getOptionalString("venueAddress"),
-    categories: formData
-      .getAll("categories")
-      .filter((value): value is string => typeof value === "string"),
-    organizerName: submitterName,
-    organizerEmail: submitterEmail,
-    description: getOptionalString("description"),
-    tableCount: getOptionalString("tableCount"),
-    vendorDetails: getOptionalString("vendorDetails"),
-    websiteUrl: getOptionalString("websiteUrl"),
-    facebookUrl: getOptionalString("facebookUrl"),
-    isFree: formData.get("isFree") === "free",
-    admissionPrice: getOptionalString("admissionPrice"),
-    admissionNotes: getOptionalString("admissionNotes"),
-    parkingInfo: getOptionalString("parkingInfo"),
-  };
-
-  await createShowSubmission({
-    submitterName,
-    submitterEmail,
-    payloadJson: payload,
+  const requestHeaders = await headers();
+  const ip = getRequestIp(requestHeaders) ?? "unknown";
+  const rateLimit = consumeRateLimit("submit-show", ip, {
+    blockMs: SUBMISSION_WINDOW_MS,
+    maxAttempts: MAX_SUBMISSIONS_PER_HOUR,
+    windowMs: SUBMISSION_WINDOW_MS,
   });
+
+  if (!rateLimit.allowed) {
+    redirect("/submit-show?error=rate");
+  }
+
+  try {
+    const submitterEmail = readRequiredString(formData, "submitterEmail", 320).toLowerCase();
+    const submitterNameInput = readOptionalString(formData, "submitterName", 120);
+    const showName = readRequiredString(formData, "showName", 160);
+    const startDate = readRequiredString(formData, "startDate", 10);
+    const endDate = readRequiredString(formData, "endDate", 10) || startDate;
+    const city = readRequiredString(formData, "city", 80);
+    const state = readRequiredString(formData, "state", 2).toUpperCase();
+    const venueName = readRequiredString(formData, "venueName", 160);
+    const websiteUrlInput = readOptionalString(formData, "websiteUrl", 2048);
+    const facebookUrlInput = readOptionalString(formData, "facebookUrl", 2048);
+    const websiteUrl = normalizeExternalUrl(websiteUrlInput);
+    const facebookUrl = normalizeExternalUrl(facebookUrlInput);
+
+    if (
+      !submitterEmail ||
+      !showName ||
+      !city ||
+      !venueName ||
+      !state ||
+      !isValidEmail(submitterEmail) ||
+      !isValidDateInput(startDate) ||
+      !isValidDateInput(endDate) ||
+      endDate < startDate ||
+      !US_STATES.some((option) => option.code === state) ||
+      (websiteUrlInput && !websiteUrl) ||
+      (facebookUrlInput && !facebookUrl)
+    ) {
+      redirect("/submit-show?error=validation");
+    }
+
+    const submitterName = submitterNameInput ?? deriveSubmitterName(submitterEmail);
+    const payload = {
+      showName,
+      startDate,
+      endDate,
+      startTimeLabel: readOptionalString(formData, "startTimeLabel", 32),
+      endTimeLabel: readOptionalString(formData, "endTimeLabel", 32),
+      city,
+      state,
+      venueName,
+      venueAddress: readOptionalString(formData, "venueAddress", 200),
+      categories: formData
+        .getAll("categories")
+        .filter((value): value is string => typeof value === "string" && SHOW_CATEGORIES.includes(value as (typeof SHOW_CATEGORIES)[number])),
+      organizerName: submitterName,
+      organizerEmail: submitterEmail,
+      description: readOptionalString(formData, "description", 4000),
+      tableCount: readOptionalString(formData, "tableCount", 6),
+      vendorDetails: readOptionalString(formData, "vendorDetails", 200),
+      websiteUrl,
+      facebookUrl,
+      isFree: formData.get("isFree") === "free",
+      admissionPrice: readOptionalString(formData, "admissionPrice", 120),
+      admissionNotes: readOptionalString(formData, "admissionNotes", 200),
+      parkingInfo: readOptionalString(formData, "parkingInfo", 200),
+    };
+
+    await createShowSubmission({
+      submitterName,
+      submitterEmail,
+      payloadJson: payload,
+    });
+  } catch {
+    redirect("/submit-show?error=validation");
+  }
 
   redirect("/submit-show/thank-you");
 }
@@ -107,7 +183,19 @@ const inputClass =
 
 const timeOptions = buildTimeOptions();
 
-export default function SubmitShowPage() {
+export default async function SubmitShowPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ error?: string }>;
+}) {
+  const sp = await searchParams;
+  const errorMessage =
+    sp.error === "rate"
+      ? "Too many submissions from this connection. Please wait an hour and try again."
+      : sp.error === "validation"
+        ? "Please check your details and use valid email and URL values."
+        : null;
+
   return (
     <div className="container-narrow py-6 sm:py-10">
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
@@ -141,6 +229,11 @@ export default function SubmitShowPage() {
             No account needed
           </li>
         </ul>
+        {errorMessage && (
+          <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorMessage}
+          </p>
+        )}
       </div>
 
       <form action={handleSubmission} className="mt-8 space-y-8">

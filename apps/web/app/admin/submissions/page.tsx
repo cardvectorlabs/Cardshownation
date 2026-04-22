@@ -1,9 +1,12 @@
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-auth";
 import { getAllSubmissions } from "@/lib/submissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function SubmissionsPage() {
+  await requireAdminSession("/admin/submissions");
+
   const submissions = await getAllSubmissions();
   const pending = submissions.filter((submission) => submission.status === "PENDING");
   const reviewed = submissions.filter((submission) => submission.status !== "PENDING");

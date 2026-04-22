@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { requireAdminSession } from "@/lib/admin-auth";
 import {
   approveShowSubmission,
   getSubmissionById,
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 async function approveSubmission(submissionId: string) {
   "use server";
+  await requireAdminSession(`/admin/submissions/${submissionId}`);
   const show = await approveShowSubmission(submissionId);
   if (!show) return;
   redirect(`/admin/shows/${show.id}`);
@@ -19,6 +21,7 @@ async function approveSubmission(submissionId: string) {
 
 async function rejectSubmission(submissionId: string, formData: FormData) {
   "use server";
+  await requireAdminSession(`/admin/submissions/${submissionId}`);
   const notesValue = formData.get("notes");
   const notes = typeof notesValue === "string" ? notesValue.trim() || null : null;
   await rejectShowSubmission(submissionId, notes);
@@ -27,6 +30,7 @@ async function rejectSubmission(submissionId: string, formData: FormData) {
 
 export default async function ReviewSubmissionPage({ params }: Props) {
   const { id } = await params;
+  await requireAdminSession(`/admin/submissions/${id}`);
   const submission = await getSubmissionById(id);
   if (!submission) notFound();
 

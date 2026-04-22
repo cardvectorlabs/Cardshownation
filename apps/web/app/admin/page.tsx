@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-auth";
 import { getDataModeLabel, isFixtureMode } from "@/lib/data-mode";
 import { getPendingSubmissions } from "@/lib/submissions";
 import {
@@ -10,6 +11,8 @@ import { formatShowDate } from "@/lib/utils";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboardPage() {
+  await requireAdminSession("/admin");
+
   const [stats, pendingSubmissions, recentShows] = await Promise.all([
     getAdminShowStats(),
     getPendingSubmissions(),

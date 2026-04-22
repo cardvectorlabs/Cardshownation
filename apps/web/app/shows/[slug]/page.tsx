@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { getStateByCode } from "@/lib/states";
 import { getShowBySlug } from "@/lib/shows";
+import { normalizeExternalUrl } from "@/lib/url";
 import { formatShowDate, stateCodeToSlug } from "@/lib/utils";
 
 type Props = {
@@ -64,6 +65,9 @@ export default async function ShowDetailPage({ params }: Props) {
   const admissionLabel = show.isFree
     ? "Free admission"
     : show.admissionPrice ?? "Paid admission";
+  const websiteUrl = normalizeExternalUrl(show.websiteUrl);
+  const organizerWebsiteUrl = normalizeExternalUrl(show.organizer?.websiteUrl);
+  const flyerImageUrl = normalizeExternalUrl(show.flyerImageUrl);
 
   const eventJsonLd = {
     "@context": "https://schema.org",
@@ -74,14 +78,14 @@ export default async function ShowDetailPage({ params }: Props) {
     eventStatus: "https://schema.org/EventScheduled",
     eventAttendanceMode: "https://schema.org/OfflineEventAttendanceMode",
     description: show.description ?? undefined,
-    image: show.flyerImageUrl ?? undefined,
-    url: show.websiteUrl ?? `https://cardshownation.com/shows/${show.slug}`,
+    image: flyerImageUrl ?? undefined,
+    url: websiteUrl ?? `https://cardshownation.com/shows/${show.slug}`,
     isAccessibleForFree: show.isFree,
     organizer: show.organizer
       ? {
           "@type": "Organization",
           name: show.organizer.name,
-          url: show.organizer.websiteUrl ?? undefined,
+          url: organizerWebsiteUrl ?? undefined,
         }
       : undefined,
     location: {
@@ -229,9 +233,9 @@ export default async function ShowDetailPage({ params }: Props) {
               </div>
 
               <div className="mt-5 grid gap-3">
-                {show.websiteUrl && (
+                {websiteUrl && (
                   <a
-                    href={show.websiteUrl}
+                    href={websiteUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
@@ -256,11 +260,11 @@ export default async function ShowDetailPage({ params }: Props) {
 
         <div className="mt-10 grid gap-8 lg:grid-cols-[1fr_320px]">
           <div className="space-y-8">
-            {show.flyerImageUrl && (
+            {flyerImageUrl && (
               <section className="overflow-hidden rounded-[2rem] border border-slate-200 bg-white shadow-sm">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={show.flyerImageUrl}
+                  src={flyerImageUrl}
                   alt={`${show.title} flyer`}
                   className="w-full bg-slate-50 object-cover"
                 />
@@ -367,9 +371,9 @@ export default async function ShowDetailPage({ params }: Props) {
                 {show.organizer && (
                   <div className="mt-5 space-y-2 text-sm leading-6 text-slate-600">
                     <p className="font-medium text-slate-900">{show.organizer.name}</p>
-                    {show.organizer.websiteUrl && (
+                    {organizerWebsiteUrl && (
                       <a
-                        href={show.organizer.websiteUrl}
+                        href={organizerWebsiteUrl}
                         target="_blank"
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1.5 font-medium text-brand-700 hover:text-brand-800"

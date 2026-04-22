@@ -1,8 +1,11 @@
+import { requireAdminSession } from "@/lib/admin-auth";
 import { ImportClient } from "./import-client";
 
 export const dynamic = "force-dynamic";
 
-export default function AdminImportPage() {
+export default async function AdminImportPage() {
+  await requireAdminSession("/admin/import");
+
   return (
     <div className="p-6 lg:p-10">
       <div className="mb-8">

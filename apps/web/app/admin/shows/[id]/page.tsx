@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
+import { requireAdminSession } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
 import { updateFixtureShow } from "@/lib/fixture-store";
@@ -12,6 +13,7 @@ export const dynamic = "force-dynamic";
 
 async function approveShow(showId: string) {
   "use server";
+  await requireAdminSession(`/admin/shows/${showId}`);
 
   if (isFixtureMode()) {
     await updateFixtureShow(showId, {
@@ -30,6 +32,7 @@ async function approveShow(showId: string) {
 
 async function rejectShow(showId: string) {
   "use server";
+  await requireAdminSession(`/admin/shows/${showId}`);
 
   if (isFixtureMode()) {
     await updateFixtureShow(showId, {
@@ -47,6 +50,7 @@ async function rejectShow(showId: string) {
 
 async function markVerified(showId: string) {
   "use server";
+  await requireAdminSession(`/admin/shows/${showId}`);
 
   if (isFixtureMode()) {
     await updateFixtureShow(showId, {
@@ -64,6 +68,7 @@ async function markVerified(showId: string) {
 
 export default async function AdminShowDetailPage({ params }: Props) {
   const { id } = await params;
+  await requireAdminSession(`/admin/shows/${id}`);
   const show = await getAdminShowById(id);
 
   if (!show) notFound();

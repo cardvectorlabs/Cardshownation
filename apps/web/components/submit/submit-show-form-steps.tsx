@@ -257,6 +257,18 @@ export function SubmitShowFormSteps({
         </summary>
 
         <div className="mt-6 space-y-6">
+          <div className="hidden" aria-hidden="true">
+            <label htmlFor="companyWebsite">Leave this field blank</label>
+            <input
+              id="companyWebsite"
+              name="companyWebsite"
+              type="text"
+              tabIndex={-1}
+              autoComplete="off"
+              defaultValue=""
+            />
+          </div>
+
           <div className="space-y-5">
             <div>
               <label

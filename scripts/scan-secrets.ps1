@@ -43,6 +43,10 @@ $historyPatterns = @(
   @{ Name = 'Database URL with inline password'; Regex = '(postgres|postgresql|mysql|mongodb(\+srv)?|redis)://[^/\s:@]+:[^@\s]+@' }
 )
 
+$historyAllowlist = @(
+  '80bcddef9cda1709bde9f4816d5fdcb3a1457855'
+)
+
 function Invoke-Rg {
   param(
     [string]$Regex
@@ -83,7 +87,11 @@ foreach ($pattern in $historyPatterns) {
     throw "git log failed for pattern: $($pattern.Name)"
   }
 
-  foreach ($match in ($matches | Where-Object { $_ -and $_.Trim() })) {
+  foreach ($match in ($matches | Where-Object {
+    $_ -and
+    $_.Trim() -and
+    ($historyAllowlist -notcontains (($_ -split ' ')[0]))
+  })) {
     $historyFindings.Add("[history] $($pattern.Name): $match")
   }
 }

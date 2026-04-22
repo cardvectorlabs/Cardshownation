@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { requireAdminSession } from "@/lib/admin-auth";
 import { getAdminShows } from "@/lib/shows";
 import { formatShowDate } from "@/lib/utils";
 
@@ -11,6 +12,8 @@ export default async function AdminShowsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  await requireAdminSession("/admin/shows");
+
   const sp = await searchParams;
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const limit = 30;

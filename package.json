@@ -18,6 +18,13 @@
     "typescript": "^5.5.0",
     "@types/node": "^20.14.0"
   },
+  "overrides": {
+    "@typescript-eslint/eslint-plugin": "7.18.0",
+    "@typescript-eslint/parser": "7.18.0",
+    "@typescript-eslint/type-utils": "7.18.0",
+    "@typescript-eslint/typescript-estree": "7.18.0",
+    "@typescript-eslint/utils": "7.18.0"
+  },
   "packageManager": "npm@10.8.0",
   "engines": {
     "node": ">=20.0.0"

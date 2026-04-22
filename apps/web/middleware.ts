@@ -1,24 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import { ADMIN_COOKIE_NAME, verifyAdminSessionToken } from "@/lib/admin-session";
 
 const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
-const COOKIE_NAME = "csn_admin";
 const LOGIN_PATH = "/admin/login";
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Only protect /admin routes (but not the login page itself)
   if (!pathname.startsWith("/admin") || pathname === LOGIN_PATH) {
     return NextResponse.next();
   }
 
-  // If no password is configured, block access entirely
   if (!ADMIN_PASSWORD) {
-    return new NextResponse("Admin access disabled — set ADMIN_PASSWORD.", { status: 503 });
+    return new NextResponse("Admin access disabled - set ADMIN_PASSWORD.", { status: 503 });
   }
 
-  const cookie = req.cookies.get(COOKIE_NAME);
-  if (cookie?.value === ADMIN_PASSWORD) {
+  const cookie = req.cookies.get(ADMIN_COOKIE_NAME);
+  if (await verifyAdminSessionToken(cookie?.value, ADMIN_PASSWORD)) {
     return NextResponse.next();
   }
 
