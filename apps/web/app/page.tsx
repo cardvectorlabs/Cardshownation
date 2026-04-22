@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Search } from "lucide-react";
 import { NearMeButton } from "@/components/shows/near-me-button";
@@ -47,12 +48,24 @@ export default async function HomePage() {
       />
 
       {/* Hero */}
-      <section className="bg-slate-950 text-white">
-        <div className="container-wide py-12 sm:py-16">
-          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white sm:text-5xl">
+      <section className="relative flex min-h-[80vh] items-center overflow-hidden bg-slate-950 text-white">
+        {/* Background image — priority-loaded above-the-fold, blurred and scaled so edges don't clip */}
+        <Image
+          src="/cardshow_hero.webp"
+          alt=""
+          fill
+          priority
+          sizes="100vw"
+          className="absolute inset-0 scale-[1.02] object-cover blur-[2px]"
+        />
+        {/* Dark overlay sits between image and content */}
+        <div aria-hidden className="absolute inset-0 bg-black/65" />
+
+        <div className="container-wide relative z-10 py-16 sm:py-20">
+          <h1 className="max-w-3xl text-4xl font-semibold tracking-tight text-white drop-shadow-md sm:text-5xl">
             Find card shows near you.
           </h1>
-          <p className="mt-3 max-w-xl text-base text-slate-300">
+          <p className="mt-3 max-w-xl text-base text-slate-200 drop-shadow">
             Search by city, show name, or promoter — or use your location.
           </p>
 
@@ -62,17 +75,17 @@ export default async function HomePage() {
             className="mt-7 flex max-w-xl gap-2"
           >
             <div className="relative flex-1">
-              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
               <input
                 type="text"
                 name="q"
                 placeholder="City, state, or show name"
-                className="w-full rounded-2xl border border-white/10 bg-white/10 py-3 pl-11 pr-4 text-sm text-white placeholder:text-slate-400 focus:border-brand-400 focus:outline-none"
+                className="w-full rounded-2xl border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 placeholder:text-slate-500 shadow-lg focus:border-brand-400 focus:outline-none"
               />
             </div>
             <button
               type="submit"
-              className="whitespace-nowrap rounded-2xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-400"
+              className="whitespace-nowrap rounded-2xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-brand-400"
             >
               Search
             </button>
@@ -87,24 +100,24 @@ export default async function HomePage() {
             />
           </div>
 
-          <div className="mt-10 grid max-w-xl gap-6 text-slate-300 sm:grid-cols-3">
+          <div className="mt-10 grid max-w-xl gap-6 text-slate-200 sm:grid-cols-3">
             <div>
-              <p className="text-2xl font-semibold text-white">
+              <p className="text-2xl font-semibold text-white drop-shadow">
                 {stats.upcomingShows.toLocaleString()}
               </p>
-              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-300">
                 Upcoming shows
               </p>
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">{stats.activeStates}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-2xl font-semibold text-white drop-shadow">{stats.activeStates}</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-300">
                 States
               </p>
             </div>
             <div>
-              <p className="text-2xl font-semibold text-white">{stats.activeOrganizers}</p>
-              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-400">
+              <p className="text-2xl font-semibold text-white drop-shadow">{stats.activeOrganizers}</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.18em] text-slate-300">
                 Promoters
               </p>
             </div>
