@@ -4,6 +4,7 @@ import Link from "next/link";
 import { ArrowRight, Search } from "lucide-react";
 import { NearMeButton } from "@/components/shows/near-me-button";
 import { ShowListItem } from "@/components/shows/show-list-item";
+import { getPromoterSession } from "@/lib/promoter-auth";
 import { getHomepageDirectoryStats, getUpcomingShows } from "@/lib/shows";
 import { US_STATES } from "@/lib/states";
 
@@ -17,7 +18,8 @@ export const metadata: Metadata = {
 };
 
 export default async function HomePage() {
-  const [upcomingShows, stats] = await Promise.all([
+  const [session, upcomingShows, stats] = await Promise.all([
+    getPromoterSession(),
     getUpcomingShows({ limit: 8 }).catch((err) => {
       console.error("[HomePage] getUpcomingShows failed, rendering empty list:", err);
       return { shows: [], total: 0 };
@@ -27,6 +29,8 @@ export default async function HomePage() {
       return { upcomingShows: 0, activeStates: 0, activeOrganizers: 0 };
     }),
   ]);
+  const promoterHref = session ? "/promoter" : "/promoter/login";
+  const promoterLabel = session ? "My Dashboard" : "Promoter Login";
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -98,6 +102,22 @@ export default async function HomePage() {
               tone="dark"
               align="start"
             />
+          </div>
+
+          <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/submit-show"
+              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-brand-500 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-brand-400"
+            >
+              Submit a show
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href={promoterHref}
+              className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-white/15"
+            >
+              {promoterLabel}
+            </Link>
           </div>
 
           <div className="mt-10 grid max-w-xl gap-6 text-slate-200 sm:grid-cols-3">
@@ -174,13 +194,21 @@ export default async function HomePage() {
             <p className="font-semibold text-white">Organizing a show?</p>
             <p className="mt-1 text-sm text-slate-400">Free to list. Goes live after a quick review.</p>
           </div>
-          <Link
-            href="/submit-show"
-            className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100 shrink-0"
-          >
-            Submit a show
-            <ArrowRight className="h-4 w-4" />
-          </Link>
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <Link
+              href="/submit-show"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100 shrink-0"
+            >
+              Submit a show
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href={promoterHref}
+              className="inline-flex items-center justify-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 shrink-0"
+            >
+              {promoterLabel}
+            </Link>
+          </div>
         </div>
       </section>
     </>

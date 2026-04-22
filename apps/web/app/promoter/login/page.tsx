@@ -24,11 +24,13 @@ async function handleLogin(formData: FormData) {
 
   const email = readString(formData, "email", 320).toLowerCase();
   const password = readString(formData, "password", 200);
-  const redirectTo = sanitizePromoterRedirectTarget(formData.get("from"));
+  const redirectTo = sanitizePromoterRedirectTarget(
+    formData.get("next") ?? formData.get("from")
+  );
 
   const user = await authenticatePromoter(email, password);
   if (!user) {
-    redirect(`/promoter/login?error=invalid&from=${encodeURIComponent(redirectTo)}`);
+    redirect(`/promoter/login?error=invalid&next=${encodeURIComponent(redirectTo)}`);
   }
 
   await startPromoterSession(user.id);
@@ -38,7 +40,7 @@ async function handleLogin(formData: FormData) {
 export default async function PromoterLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; from?: string }>;
+  searchParams: Promise<{ error?: string; from?: string; next?: string }>;
 }) {
   const session = await getPromoterSession();
   if (session) {
@@ -46,7 +48,7 @@ export default async function PromoterLoginPage({
   }
 
   const sp = await searchParams;
-  const from = sanitizePromoterRedirectTarget(sp.from);
+  const next = sanitizePromoterRedirectTarget(sp.next ?? sp.from);
   const errorMessage =
     sp.error === "invalid" ? "Email or password did not match this promoter account." : null;
 
@@ -71,7 +73,7 @@ export default async function PromoterLoginPage({
         )}
 
         <form action={handleLogin} className="mt-8 space-y-5">
-          <input type="hidden" name="from" value={from} />
+          <input type="hidden" name="next" value={next} />
 
           <div>
             <label htmlFor="email" className="mb-2 block text-sm font-medium text-slate-700">

@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { MapPin, Search } from "lucide-react";
 import { getDataModeLabel, isFixtureMode } from "@/lib/data-mode";
+import { getPromoterSession } from "@/lib/promoter-auth";
 import { getStatesByCodes } from "@/lib/states";
 
 // High-traffic states shown as quick links on mobile
 const quickStateLinks = getStatesByCodes(["TX", "CA", "FL", "OH", "PA", "IL"]);
 
-export function Header() {
+export async function Header() {
+  const session = await getPromoterSession();
+  const promoterHref = session ? "/promoter" : "/promoter/login";
+  const promoterLabel = session ? "My Dashboard" : "Promoter Login";
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="container-wide py-3">
@@ -42,11 +47,11 @@ export function Header() {
               <span className="sm:hidden">Browse</span>
             </Link>
             <Link
-              href="/promoter"
-              className="inline-flex items-center rounded-full px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-950"
+              href={promoterHref}
+              className="inline-flex items-center rounded-full border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800"
             >
-              <span className="hidden sm:inline">Promoter Portal</span>
-              <span className="sm:hidden">Portal</span>
+              <span className="hidden sm:inline">{promoterLabel}</span>
+              <span className="sm:hidden">{session ? "Dashboard" : "Login"}</span>
             </Link>
             <Link
               href="/submit-show"
@@ -67,6 +72,12 @@ export function Header() {
               {state.name}
             </Link>
           ))}
+          <Link
+            href={promoterHref}
+            className="whitespace-nowrap rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800"
+          >
+            {promoterLabel}
+          </Link>
         </div>
       </div>
     </header>
