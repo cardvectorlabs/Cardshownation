@@ -6,6 +6,8 @@ import {
   CalendarDays,
   Clock,
   ExternalLink,
+  Globe,
+  Mail,
   MapPin,
   Megaphone,
   Ticket,
@@ -38,6 +40,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
+function formatExternalHost(value: string) {
+  try {
+    return new URL(value).hostname.replace(/^www\./, "");
+  } catch {
+    return value;
+  }
+}
+
 export default async function ShowDetailPage({ params }: Props) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
@@ -66,8 +76,62 @@ export default async function ShowDetailPage({ params }: Props) {
     ? "Free admission"
     : show.admissionPrice ?? "Paid admission";
   const websiteUrl = normalizeExternalUrl(show.websiteUrl);
+  const facebookUrl = normalizeExternalUrl(show.facebookUrl);
+  const ticketUrl = normalizeExternalUrl(show.ticketUrl);
   const organizerWebsiteUrl = normalizeExternalUrl(show.organizer?.websiteUrl);
+  const organizerFacebookUrl = normalizeExternalUrl(show.organizer?.facebookUrl);
+  const organizerInstagramUrl = normalizeExternalUrl(show.organizer?.instagramUrl);
   const flyerImageUrl = normalizeExternalUrl(show.flyerImageUrl);
+  const organizerEmail = show.organizer?.email?.trim() || null;
+  const promoterContacts: Array<{
+    href: string;
+    icon: "email" | "globe" | "ticket" | "link";
+    label: string;
+    meta: string;
+  }> = [];
+  const seenPromoterLinks = new Set<string>();
+
+  if (organizerEmail && organizerEmail.includes("@")) {
+    promoterContacts.push({
+      href: `mailto:${organizerEmail}`,
+      icon: "email",
+      label: "Email promoter",
+      meta: organizerEmail,
+    });
+  }
+
+  function pushPromoterContact(
+    href: string | null,
+    label: string,
+    icon: "globe" | "ticket" | "link"
+  ) {
+    if (!href || seenPromoterLinks.has(href)) {
+      return;
+    }
+
+    seenPromoterLinks.add(href);
+    promoterContacts.push({
+      href,
+      icon,
+      label,
+      meta: formatExternalHost(href),
+    });
+  }
+
+  pushPromoterContact(websiteUrl, "Event website", "globe");
+  pushPromoterContact(facebookUrl, "Facebook event", "link");
+  pushPromoterContact(
+    ticketUrl,
+    show.isFree ? "Registration details" : "Tickets / registration",
+    "ticket"
+  );
+  pushPromoterContact(organizerWebsiteUrl, "Promoter website", "globe");
+  pushPromoterContact(organizerFacebookUrl, "Promoter Facebook", "link");
+  pushPromoterContact(organizerInstagramUrl, "Promoter Instagram", "link");
+
+  const hasPromoterSection = Boolean(
+    show.organizer || promoterContacts.length > 0 || show.loadInInfo
+  );
 
   const eventJsonLd = {
     "@context": "https://schema.org",
@@ -244,6 +308,28 @@ export default async function ShowDetailPage({ params }: Props) {
                     <ExternalLink className="h-4 w-4" />
                   </a>
                 )}
+                {facebookUrl && (
+                  <a
+                    href={facebookUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                  >
+                    Facebook event
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+                {ticketUrl && (
+                  <a
+                    href={ticketUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center justify-center gap-2 rounded-full border border-white/15 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+                  >
+                    {show.isFree ? "Registration details" : "Tickets"}
+                    <Ticket className="h-4 w-4" />
+                  </a>
+                )}
                 <a
                   href={`https://maps.google.com/?q=${mapsQuery}`}
                   target="_blank"
@@ -362,26 +448,76 @@ export default async function ShowDetailPage({ params }: Props) {
               )}
             </section>
 
-            {(show.organizer || show.loadInInfo) && (
+            {hasPromoterSection && (
               <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
                 <h2 className="text-2xl font-semibold text-slate-950">
-                  Organizer
+                  Promoter and vendor contact
                 </h2>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+                  Need table availability, vendor details, or a direct answer
+                  before the show? Use the contact methods below when the
+                  promoter has shared them.
+                </p>
 
                 {show.organizer && (
-                  <div className="mt-5 space-y-2 text-sm leading-6 text-slate-600">
-                    <p className="font-medium text-slate-900">{show.organizer.name}</p>
-                    {organizerWebsiteUrl && (
+                  <div className="mt-5 rounded-[1.5rem] bg-slate-50 p-5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="text-lg font-semibold text-slate-900">
+                        {show.organizer.name}
+                      </p>
+                      {show.organizer.verified && (
+                        <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.16em] text-emerald-700">
+                          Verified promoter
+                        </span>
+                      )}
+                    </div>
+                    <p className="mt-2 text-sm leading-6 text-slate-600">
+                      Promoter contact details appear here so attendees can ask
+                      questions and vendors can follow up on tables or setup.
+                    </p>
+                  </div>
+                )}
+
+                {promoterContacts.length > 0 && (
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    {promoterContacts.map((contact) => (
                       <a
-                        href={organizerWebsiteUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1.5 font-medium text-brand-700 hover:text-brand-800"
+                        key={`${contact.label}-${contact.href}`}
+                        href={contact.href}
+                        target={contact.href.startsWith("mailto:") ? undefined : "_blank"}
+                        rel={
+                          contact.href.startsWith("mailto:")
+                            ? undefined
+                            : "noopener noreferrer"
+                        }
+                        className="group rounded-[1.5rem] border border-slate-200 p-4 transition-colors hover:border-brand-200 hover:bg-brand-50"
                       >
-                        Visit organizer website
-                        <ExternalLink className="h-4 w-4" />
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex min-w-0 items-start gap-3">
+                            <div className="rounded-2xl bg-slate-100 p-2 text-slate-700 transition-colors group-hover:bg-brand-100 group-hover:text-brand-700">
+                              {contact.icon === "email" ? (
+                                <Mail className="h-4 w-4" />
+                              ) : contact.icon === "globe" ? (
+                                <Globe className="h-4 w-4" />
+                              ) : contact.icon === "ticket" ? (
+                                <Ticket className="h-4 w-4" />
+                              ) : (
+                                <ExternalLink className="h-4 w-4" />
+                              )}
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-slate-900">
+                                {contact.label}
+                              </p>
+                              <p className="truncate text-sm text-slate-500">
+                                {contact.meta}
+                              </p>
+                            </div>
+                          </div>
+                          <ArrowRight className="mt-1 h-4 w-4 shrink-0 text-slate-300 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
+                        </div>
                       </a>
-                    )}
+                    ))}
                   </div>
                 )}
 
@@ -416,7 +552,7 @@ export default async function ShowDetailPage({ params }: Props) {
               </div>
             </section>
 
-<section className="rounded-[2rem] bg-slate-950 p-5 text-white">
+            <section className="rounded-[2rem] bg-slate-950 p-5 text-white">
               <div className="flex items-center gap-2 text-brand-300">
                 <Megaphone className="h-4 w-4" />
                 <p className="text-sm font-semibold uppercase tracking-[0.2em]">
