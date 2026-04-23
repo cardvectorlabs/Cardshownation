@@ -16,6 +16,11 @@ type CreateModeratorInput = {
   actorId: string;
 };
 
+type AdminModeratorActionInput = {
+  moderatorUserId: string;
+  actorId: string;
+};
+
 export async function registerFanAccount(input: RegisterFanInput) {
   const email = input.email.trim().toLowerCase();
   const existingUser = await db.user.findUnique({ where: { email } });
@@ -186,4 +191,59 @@ export async function getUserRoleStats() {
   ]);
 
   return { fans, moderators, promoters, admins, subscriptions };
+}
+
+export async function resetModeratorPasswordByAdmin(
+  input: AdminModeratorActionInput & { nextPassword: string }
+) {
+  const user = await db.user.findUnique({
+    where: { id: input.moderatorUserId },
+  });
+
+  if (!user || user.role !== "MODERATOR") {
+    throw new Error("Moderator account not found.");
+  }
+
+  const passwordHash = await hashPassword(input.nextPassword);
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: "ADMIN",
+    action: "moderator.password_reset",
+    targetType: "User",
+    targetId: user.id,
+    details: {
+      email: user.email,
+    },
+  });
+}
+
+export async function revokeModeratorAccessByAdmin(input: AdminModeratorActionInput) {
+  const user = await db.user.findUnique({
+    where: { id: input.moderatorUserId },
+  });
+
+  if (!user || user.role !== "MODERATOR") {
+    throw new Error("Moderator account not found.");
+  }
+
+  await db.user.update({
+    where: { id: user.id },
+    data: { role: "FAN" },
+  });
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: "ADMIN",
+    action: "moderator.revoked",
+    targetType: "User",
+    targetId: user.id,
+    details: {
+      email: user.email,
+    },
+  });
 }

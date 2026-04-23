@@ -2,11 +2,19 @@ import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { updateAdminPassword } from "@/lib/admins";
 import { getRecentAuditLogs } from "@/lib/audit-log";
-import { listModeratorAccounts, getUserRoleStats, createModeratorAccountByAdmin } from "@/lib/users";
+import {
+  listModeratorAccounts,
+  getUserRoleStats,
+  createModeratorAccountByAdmin,
+  resetModeratorPasswordByAdmin,
+  revokeModeratorAccessByAdmin,
+} from "@/lib/users";
 
 type SearchParams = {
   created?: string;
   password?: string;
+  moderatorReset?: string;
+  moderatorRevoked?: string;
   error?: string;
 };
 
@@ -80,6 +88,51 @@ async function changeMyPassword(formData: FormData) {
   }
 }
 
+async function resetModeratorPassword(formData: FormData) {
+  "use server";
+
+  const session = await requireAdminSession("/admin/users");
+  const moderatorUserId = readRequiredString(formData, "moderatorUserId", 120);
+  const nextPassword = readRequiredString(formData, "nextPassword", 200);
+  const confirmPassword = readRequiredString(formData, "confirmPassword", 200);
+
+  if (!moderatorUserId || nextPassword.length < 12 || nextPassword !== confirmPassword) {
+    redirect("/admin/users?error=moderator-reset");
+  }
+
+  try {
+    await resetModeratorPasswordByAdmin({
+      actorId: session.user.id,
+      moderatorUserId,
+      nextPassword,
+    });
+    redirect("/admin/users?moderatorReset=1");
+  } catch {
+    redirect("/admin/users?error=moderator-reset");
+  }
+}
+
+async function revokeModerator(formData: FormData) {
+  "use server";
+
+  const session = await requireAdminSession("/admin/users");
+  const moderatorUserId = readRequiredString(formData, "moderatorUserId", 120);
+
+  if (!moderatorUserId) {
+    redirect("/admin/users?error=moderator-revoke");
+  }
+
+  try {
+    await revokeModeratorAccessByAdmin({
+      actorId: session.user.id,
+      moderatorUserId,
+    });
+    redirect("/admin/users?moderatorRevoked=1");
+  } catch {
+    redirect("/admin/users?error=moderator-revoke");
+  }
+}
+
 export default async function AdminUsersPage({
   searchParams,
 }: {
@@ -98,10 +151,18 @@ export default async function AdminUsersPage({
       ? "Moderator account created."
       : sp.password === "1"
         ? "Admin password updated."
+        : sp.moderatorReset === "1"
+          ? "Moderator password reset."
+          : sp.moderatorRevoked === "1"
+            ? "Moderator access revoked."
         : sp.error === "moderator"
           ? "Moderator creation failed. Check the name, email, and password fields."
           : sp.error === "password"
             ? "Password update failed. Check your current password and confirmation."
+            : sp.error === "moderator-reset"
+              ? "Moderator password reset failed. Use matching passwords with at least 12 characters."
+              : sp.error === "moderator-revoke"
+                ? "Moderator revoke failed."
             : null;
 
   return (
@@ -224,6 +285,38 @@ export default async function AdminUsersPage({
                   <p className="mt-1 text-xs text-slate-500">
                     {moderator.email} · {moderator._count.moderatedSubmissions} reviewed submissions
                   </p>
+                  <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                    <form action={resetModeratorPassword} className="flex flex-col gap-3 sm:flex-row">
+                      <input type="hidden" name="moderatorUserId" value={moderator.id} />
+                      <input
+                        name="nextPassword"
+                        type="password"
+                        placeholder="New moderator password"
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                      />
+                      <input
+                        name="confirmPassword"
+                        type="password"
+                        placeholder="Confirm password"
+                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                      />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+                      >
+                        Reset password
+                      </button>
+                    </form>
+                    <form action={revokeModerator}>
+                      <input type="hidden" name="moderatorUserId" value={moderator.id} />
+                      <button
+                        type="submit"
+                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                      >
+                        Revoke moderator
+                      </button>
+                    </form>
+                  </div>
                 </div>
               ))}
             </div>
