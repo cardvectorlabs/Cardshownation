@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { writeAuditLog } from "@/lib/audit-log";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
 
 type RegisterAdminInput = {
@@ -61,4 +62,37 @@ export async function registerInitialAdmin(input: RegisterAdminInput) {
 export async function hasAnyAdminUsers() {
   const count = await db.user.count({ where: { role: "ADMIN" } });
   return count > 0;
+}
+
+export async function updateAdminPassword(input: {
+  userId: string;
+  currentPassword: string;
+  nextPassword: string;
+}) {
+  const user = await db.user.findUnique({
+    where: { id: input.userId },
+  });
+
+  if (!user || user.role !== "ADMIN") {
+    throw new Error("Admin account not found.");
+  }
+
+  const valid = await verifyPassword(input.currentPassword, user.passwordHash);
+  if (!valid) {
+    throw new Error("Current password was incorrect.");
+  }
+
+  const passwordHash = await hashPassword(input.nextPassword);
+  await db.user.update({
+    where: { id: user.id },
+    data: { passwordHash },
+  });
+
+  await writeAuditLog({
+    actorId: user.id,
+    actorRole: "ADMIN",
+    action: "admin.password_changed",
+    targetType: "User",
+    targetId: user.id,
+  });
 }

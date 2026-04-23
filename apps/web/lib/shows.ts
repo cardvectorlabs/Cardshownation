@@ -1,5 +1,7 @@
 import { Prisma } from "@csn/db";
+import type { UserRole } from "@csn/db";
 import { customAlphabet } from "nanoid";
+import { writeAuditLog } from "@/lib/audit-log";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
 import { getCityCoords } from "@/lib/city-coords";
@@ -632,8 +634,16 @@ export async function getAdminShowStats() {
 }
 
 export async function bulkCreateShows(
-  rows: ParsedShowRow[]
+  rows: ParsedShowRow[],
+  actor?: {
+    actorId?: string | null;
+    actorRole?: UserRole | null;
+  }
 ): Promise<BulkCreateShowsResult> {
+  if (actor?.actorRole !== "ADMIN") {
+    throw new Error("Only admins can bulk import shows.");
+  }
+
   if (isFixtureMode()) {
     return {
       created: 0,
@@ -853,6 +863,18 @@ export async function bulkCreateShows(
         },
       });
     }
+  });
+
+  await writeAuditLog({
+    actorId: actor?.actorId ?? null,
+    actorRole: actor?.actorRole ?? null,
+    action: "shows.bulk_imported",
+    targetType: "Show",
+    details: {
+      created: validRows.length,
+      skipped: errors.length,
+      rows: rows.length,
+    },
   });
 
   return {
@@ -1162,7 +1184,18 @@ export async function getAdminShowById(id: string) {
   });
 }
 
-export async function assignShowToPromoterByEmail(showId: string, email: string) {
+export async function assignShowToPromoterByEmail(
+  showId: string,
+  email: string,
+  actor?: {
+    actorId?: string | null;
+    actorRole?: UserRole | null;
+  }
+) {
+  if (actor?.actorRole !== "ADMIN") {
+    throw new Error("Only admins can assign shows to promoters.");
+  }
+
   if (isFixtureMode()) {
     return { success: false, reason: "fixture-mode" as const };
   }
@@ -1191,10 +1224,32 @@ export async function assignShowToPromoterByEmail(showId: string, email: string)
     data: { organizerId: organizer.id },
   });
 
+  await writeAuditLog({
+    actorId: actor?.actorId ?? null,
+    actorRole: actor?.actorRole ?? null,
+    action: "show.promoter_assigned",
+    targetType: "Show",
+    targetId: showId,
+    details: {
+      organizerId: organizer.id,
+      email: normalizedEmail,
+    },
+  });
+
   return { success: true as const, reason: null };
 }
 
-export async function clearShowPromoterAssignment(showId: string) {
+export async function clearShowPromoterAssignment(
+  showId: string,
+  actor?: {
+    actorId?: string | null;
+    actorRole?: UserRole | null;
+  }
+) {
+  if (actor?.actorRole !== "ADMIN") {
+    throw new Error("Only admins can clear promoter assignments.");
+  }
+
   if (isFixtureMode()) {
     return;
   }
@@ -1202,5 +1257,13 @@ export async function clearShowPromoterAssignment(showId: string) {
   await db.show.update({
     where: { id: showId },
     data: { organizerId: null },
+  });
+
+  await writeAuditLog({
+    actorId: actor?.actorId ?? null,
+    actorRole: actor?.actorRole ?? null,
+    action: "show.promoter_cleared",
+    targetType: "Show",
+    targetId: showId,
   });
 }

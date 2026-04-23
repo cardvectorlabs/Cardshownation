@@ -1,22 +1,19 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { authenticateModerator } from "@/lib/moderators";
-import {
-  getModeratorSession,
-  getModeratorSessionSecret,
-  startModeratorSession,
-} from "@/lib/moderator-auth";
+import { authenticateFan } from "@/lib/users";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { getUserSession, getUserSessionSecret, startUserSession } from "@/lib/user-auth";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_BLOCK_MS = 30 * 60 * 1000;
 const MAX_LOGIN_ATTEMPTS = 5;
 
-function sanitizeModeratorRedirectTarget(value: unknown) {
-  const sanitized = sanitizeLocalRedirectTarget(value, "/moderator");
-  return sanitized.startsWith("/moderator/login") ? "/moderator" : sanitized;
+function sanitizeUserRedirectTarget(value: unknown) {
+  const sanitized = sanitizeLocalRedirectTarget(value, "/account");
+  return sanitized.startsWith("/account/login") ? "/account" : sanitized;
 }
 
 function readString(formData: FormData, key: string, maxLength: number) {
@@ -37,75 +34,75 @@ async function handleLogin(formData: FormData) {
 
   const email = readString(formData, "email", 320).toLowerCase();
   const password = readString(formData, "password", 200);
-  const redirectTo = sanitizeModeratorRedirectTarget(formData.get("from"));
-  const sessionSecret = await getModeratorSessionSecret();
+  const redirectTo = sanitizeUserRedirectTarget(formData.get("from"));
+  const sessionSecret = await getUserSessionSecret();
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
-  const rateLimit = consumeRateLimit("moderator-login", ip, {
+  const rateLimit = consumeRateLimit("user-login", ip, {
     blockMs: LOGIN_BLOCK_MS,
     maxAttempts: MAX_LOGIN_ATTEMPTS,
     windowMs: LOGIN_WINDOW_MS,
   });
 
   if (!rateLimit.allowed) {
-    redirect(`/moderator/login?error=rate&from=${encodeURIComponent(redirectTo)}`);
+    redirect(`/account/login?error=rate&from=${encodeURIComponent(redirectTo)}`);
   }
 
   if (!sessionSecret) {
-    redirect(`/moderator/login?error=disabled&from=${encodeURIComponent(redirectTo)}`);
+    redirect(`/account/login?error=disabled&from=${encodeURIComponent(redirectTo)}`);
   }
 
-  const user = await authenticateModerator(email, password);
+  const user = await authenticateFan(email, password);
   if (!user) {
     await delay(750);
-    redirect(`/moderator/login?error=invalid&from=${encodeURIComponent(redirectTo)}`);
+    redirect(`/account/login?error=invalid&from=${encodeURIComponent(redirectTo)}`);
   }
 
-  resetRateLimit("moderator-login", ip);
-  await startModeratorSession(user.id);
+  resetRateLimit("user-login", ip);
+  await startUserSession(user.id);
   redirect(redirectTo);
 }
 
-export default async function ModeratorLoginPage({
+export default async function UserLoginPage({
   searchParams,
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
   const [session, secret, sp] = await Promise.all([
-    getModeratorSession(),
-    getModeratorSessionSecret(),
+    getUserSession(),
+    getUserSessionSecret(),
     searchParams,
   ]);
   if (session) {
-    redirect("/moderator");
+    redirect("/account");
   }
 
-  const from = sanitizeModeratorRedirectTarget(sp.from);
+  const from = sanitizeUserRedirectTarget(sp.from);
   const errorMessage =
     sp.error === "disabled"
-      ? "Moderator portal is disabled until MODERATOR_SESSION_SECRET is set on the server."
+      ? "User accounts are disabled until USER_SESSION_SECRET is set on the server."
       : sp.error === "rate"
-      ? "Too many attempts. Wait 30 minutes and try again."
-      : sp.error === "invalid"
-        ? "Email or password did not match this moderator account."
-        : null;
+        ? "Too many attempts. Wait 30 minutes and try again."
+        : sp.error === "invalid"
+          ? "Email or password did not match this account."
+          : null;
 
   return (
     <div className="container-narrow py-6 sm:py-10">
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
-          Moderator portal
+          Member account
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
           Log in
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600">
-          Sign in to review submitted shows and flag promoters for admin trust review.
+          Manage your saved states for upcoming show email alerts.
         </p>
 
         {!secret && (
           <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set `MODERATOR_SESSION_SECRET` to enable moderator sign-in.
+            Set `USER_SESSION_SECRET` to enable member sign-in.
           </p>
         )}
 
@@ -156,7 +153,10 @@ export default async function ModeratorLoginPage({
         </form>
 
         <p className="mt-6 text-sm text-slate-600">
-          Moderator accounts are created by admin.
+          Need an account?{" "}
+          <Link href="/account/signup" className="font-semibold text-brand-700 hover:text-brand-800">
+            Create account
+          </Link>
         </p>
       </div>
     </div>

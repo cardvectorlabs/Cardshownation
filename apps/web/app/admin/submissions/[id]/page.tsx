@@ -28,7 +28,7 @@ function readReviewEvery(formData: FormData) {
 
 async function approveSubmission(submissionId: string, formData: FormData) {
   "use server";
-  await requireAdminSession(`/admin/submissions/${submissionId}`);
+  const session = await requireAdminSession(`/admin/submissions/${submissionId}`);
   const grantAutoApproval = formData.get("grantAutoApproval") === "on";
   const submission = await getSubmissionById(submissionId);
   if (!submission) return;
@@ -37,21 +37,31 @@ async function approveSubmission(submissionId: string, formData: FormData) {
     await setOrganizerAutoApprovalForPayload(
       submission.payloadJson as Record<string, unknown>,
       true,
-      readReviewEvery(formData)
+      readReviewEvery(formData),
+      {
+        actorId: session.user.id,
+        actorRole: "ADMIN",
+      }
     );
   }
 
-  const show = await approveShowSubmission(submissionId);
+  const show = await approveShowSubmission(submissionId, {
+    reviewerId: session.user.id,
+    reviewerRole: "ADMIN",
+  });
   if (!show) return;
   redirect(`/admin/shows/${show.id}`);
 }
 
 async function rejectSubmission(submissionId: string, formData: FormData) {
   "use server";
-  await requireAdminSession(`/admin/submissions/${submissionId}`);
+  const session = await requireAdminSession(`/admin/submissions/${submissionId}`);
   const notesValue = formData.get("notes");
   const notes = typeof notesValue === "string" ? notesValue.trim() || null : null;
-  await rejectShowSubmission(submissionId, notes);
+  await rejectShowSubmission(submissionId, notes, {
+    reviewerId: session.user.id,
+    reviewerRole: "ADMIN",
+  });
   redirect("/admin/submissions");
 }
 

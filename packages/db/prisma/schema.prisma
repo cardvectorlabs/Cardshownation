@@ -51,6 +51,8 @@ model User {
   savedShows SavedShow[]
   reports    ShowReport[]
   moderatedSubmissions ShowSubmission[] @relation("SubmissionReviewer")
+  subscriptions UserStateSubscription[]
+  auditLogs AuditLog[] @relation("AuditActor")
   organizer  Organizer?
 }
 
@@ -220,6 +222,39 @@ model ImportLog {
   createdAt    DateTime @default(now())
 
   @@index([source, createdAt])
+}
+
+model UserStateSubscription {
+  id           String   @id @default(cuid())
+  userId       String
+  stateCode    String
+  emailEnabled Boolean  @default(true)
+  textEnabled  Boolean  @default(false)
+  pushEnabled  Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, stateCode])
+  @@index([stateCode])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  actorRole  UserRole?
+  action     String
+  targetType String
+  targetId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  actor User? @relation("AuditActor", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([action, createdAt])
+  @@index([targetType, targetId])
+  @@index([actorId, createdAt])
 }
 
 // State directory table — seeded once, drives /card-shows/[state] pages

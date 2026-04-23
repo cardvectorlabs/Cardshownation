@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { writeAuditLog } from "@/lib/audit-log";
 import { isFixtureMode } from "@/lib/data-mode";
 import { getCityCoords } from "@/lib/city-coords";
 import {
@@ -286,6 +287,11 @@ export async function approveShowSubmission(
     return approveFixtureSubmission(submissionId);
   }
 
+  const actorRole = options?.reviewerRole ?? null;
+  if (actorRole && actorRole !== "ADMIN" && actorRole !== "MODERATOR") {
+    throw new Error("Only admin or moderator reviewers can approve submissions.");
+  }
+
   const submission = await db.showSubmission.findUnique({
     where: { id: submissionId },
   });
@@ -312,14 +318,34 @@ export async function approveShowSubmission(
     },
   });
 
+  await writeAuditLog({
+    actorId: options?.reviewerId ?? null,
+    actorRole,
+    action: "submission.approved",
+    targetType: "ShowSubmission",
+    targetId: submissionId,
+    details: {
+      reviewedShowId: show.id,
+      submitterEmail: submission.submitterEmail,
+    },
+  });
+
   return show;
 }
 
 export async function setOrganizerAutoApprovalForPayload(
   payload: Record<string, unknown>,
   enabled: boolean,
-  reviewEvery?: number
+  reviewEvery?: number,
+  actor?: {
+    actorId?: string | null;
+    actorRole?: UserRole | null;
+  }
 ) {
+  if (actor?.actorRole !== "ADMIN") {
+    throw new Error("Only admins can update promoter auto-approval.");
+  }
+
   const lookup = getApprovalLookup(payload);
   if (!lookup) {
     return null;
@@ -328,7 +354,7 @@ export async function setOrganizerAutoApprovalForPayload(
   const normalizedReviewEvery =
     typeof reviewEvery === "number" ? Math.max(1, Math.min(10, reviewEvery)) : 4;
 
-  return db.organizerApproval.upsert({
+  const approval = await db.organizerApproval.upsert({
     where: {
       organizerId_city_state: {
         organizerId: lookup.organizerId,
@@ -348,6 +374,22 @@ export async function setOrganizerAutoApprovalForPayload(
       reviewEvery: normalizedReviewEvery,
     },
   });
+
+  await writeAuditLog({
+    actorId: actor.actorId ?? null,
+    actorRole: actor.actorRole,
+    action: enabled ? "promoter.trust_enabled" : "promoter.trust_disabled",
+    targetType: "OrganizerApproval",
+    targetId: approval.id,
+    details: {
+      organizerId: lookup.organizerId,
+      city: lookup.city,
+      state: lookup.state,
+      reviewEvery: normalizedReviewEvery,
+    },
+  });
+
+  return approval;
 }
 
 export async function rejectShowSubmission(
@@ -362,7 +404,12 @@ export async function rejectShowSubmission(
     return rejectFixtureSubmission(submissionId, notes);
   }
 
-  return db.showSubmission.update({
+  const actorRole = options?.reviewerRole ?? null;
+  if (actorRole && actorRole !== "ADMIN" && actorRole !== "MODERATOR") {
+    throw new Error("Only admin or moderator reviewers can reject submissions.");
+  }
+
+  const submission = await db.showSubmission.update({
     where: { id: submissionId },
     data: {
       status: "REJECTED",
@@ -371,4 +418,18 @@ export async function rejectShowSubmission(
       reviewerRole: options?.reviewerRole ?? null,
     },
   });
+
+  await writeAuditLog({
+    actorId: options?.reviewerId ?? null,
+    actorRole,
+    action: "submission.rejected",
+    targetType: "ShowSubmission",
+    targetId: submissionId,
+    details: {
+      notes,
+      submitterEmail: submission.submitterEmail,
+    },
+  });
+
+  return submission;
 }

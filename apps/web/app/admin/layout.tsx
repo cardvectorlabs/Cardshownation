@@ -18,6 +18,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             { href: "/admin/submissions", label: "Submissions", icon: Send },
             { href: "/admin/shows", label: "All Shows", icon: ListChecks },
             { href: "/admin/promoters", label: "Promoters", icon: Users },
+            { href: "/admin/users", label: "Users", icon: Users },
             { href: "/admin/import", label: "Import CSV", icon: Upload },
             { href: "/admin/imports", label: "Auto-Import", icon: RefreshCw },
           ].map(({ href, label, icon: Icon }) => (

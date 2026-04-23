@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { writeAuditLog } from "@/lib/audit-log";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
 import { updateFixtureShow } from "@/lib/fixture-store";
@@ -33,7 +34,7 @@ function readReviewEvery(formData: FormData) {
 
 async function approveShow(showId: string) {
   "use server";
-  await requireAdminSession(`/admin/shows/${showId}`);
+  const session = await requireAdminSession(`/admin/shows/${showId}`);
 
   if (isFixtureMode()) {
     await updateFixtureShow(showId, {
@@ -47,12 +48,20 @@ async function approveShow(showId: string) {
     });
   }
 
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "show.approved",
+    targetType: "Show",
+    targetId: showId,
+  });
+
   redirect("/admin/shows");
 }
 
 async function rejectShow(showId: string) {
   "use server";
-  await requireAdminSession(`/admin/shows/${showId}`);
+  const session = await requireAdminSession(`/admin/shows/${showId}`);
 
   if (isFixtureMode()) {
     await updateFixtureShow(showId, {
@@ -65,12 +74,20 @@ async function rejectShow(showId: string) {
     });
   }
 
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "show.rejected",
+    targetType: "Show",
+    targetId: showId,
+  });
+
   redirect("/admin/shows");
 }
 
 async function markVerified(showId: string) {
   "use server";
-  await requireAdminSession(`/admin/shows/${showId}`);
+  const session = await requireAdminSession(`/admin/shows/${showId}`);
 
   if (isFixtureMode()) {
     await updateFixtureShow(showId, {
@@ -83,12 +100,20 @@ async function markVerified(showId: string) {
     });
   }
 
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "show.marked_verified",
+    targetType: "Show",
+    targetId: showId,
+  });
+
   redirect(`/admin/shows/${showId}`);
 }
 
 async function trustPromoterForCity(showId: string, formData: FormData) {
   "use server";
-  await requireAdminSession(`/admin/shows/${showId}`);
+  const session = await requireAdminSession(`/admin/shows/${showId}`);
 
   const show = await db.show.findUnique({
     where: { id: showId },
@@ -105,7 +130,7 @@ async function trustPromoterForCity(showId: string, formData: FormData) {
 
   const reviewEvery = readReviewEvery(formData);
 
-  await db.organizerApproval.upsert({
+  const approval = await db.organizerApproval.upsert({
     where: {
       organizerId_city_state: {
         organizerId: show.organizerId,
@@ -126,12 +151,27 @@ async function trustPromoterForCity(showId: string, formData: FormData) {
     },
   });
 
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "promoter.trust_enabled",
+    targetType: "OrganizerApproval",
+    targetId: approval.id,
+    details: {
+      organizerId: show.organizerId,
+      city: show.city,
+      state: show.state,
+      reviewEvery,
+      showId,
+    },
+  });
+
   redirect(`/admin/shows/${showId}`);
 }
 
 async function untrustPromoterForCity(showId: string) {
   "use server";
-  await requireAdminSession(`/admin/shows/${showId}`);
+  const session = await requireAdminSession(`/admin/shows/${showId}`);
 
   const show = await db.show.findUnique({
     where: { id: showId },
@@ -154,16 +194,32 @@ async function untrustPromoterForCity(showId: string) {
     },
   });
 
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "promoter.trust_removed",
+    targetType: "OrganizerApproval",
+    details: {
+      organizerId: show.organizerId,
+      city: show.city,
+      state: show.state,
+      showId,
+    },
+  });
+
   redirect(`/admin/shows/${showId}`);
 }
 
 async function assignPromoter(showId: string, formData: FormData) {
   "use server";
-  await requireAdminSession(`/admin/shows/${showId}`);
+  const session = await requireAdminSession(`/admin/shows/${showId}`);
 
   const emailValue = formData.get("promoterEmail");
   const email = typeof emailValue === "string" ? emailValue.trim() : "";
-  const result = await assignShowToPromoterByEmail(showId, email);
+  const result = await assignShowToPromoterByEmail(showId, email, {
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+  });
 
   const status =
     result.success ? "assigned" : result.reason === "not-found" ? "missing" : "invalid";
@@ -172,8 +228,11 @@ async function assignPromoter(showId: string, formData: FormData) {
 
 async function clearPromoter(showId: string) {
   "use server";
-  await requireAdminSession(`/admin/shows/${showId}`);
-  await clearShowPromoterAssignment(showId);
+  const session = await requireAdminSession(`/admin/shows/${showId}`);
+  await clearShowPromoterAssignment(showId, {
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+  });
   redirect(`/admin/shows/${showId}?assign=cleared`);
 }
 

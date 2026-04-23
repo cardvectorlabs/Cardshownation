@@ -26,7 +26,7 @@ export async function uploadShowsCsvAction(
   _prevState: UploadState,
   formData: FormData
 ): Promise<UploadState> {
-  await requireAdminSession("/admin/shows/upload");
+  const session = await requireAdminSession("/admin/shows/upload");
 
   const file = formData.get("file");
   if (!(file instanceof File) || file.size === 0) {
@@ -79,7 +79,10 @@ export async function uploadShowsCsvAction(
   }
 
   try {
-    const result = await bulkCreateShows(rows);
+    const result = await bulkCreateShows(rows, {
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+    });
     return {
       ...result,
       message: `Import finished. Created ${result.created} show${result.created === 1 ? "" : "s"}.`,

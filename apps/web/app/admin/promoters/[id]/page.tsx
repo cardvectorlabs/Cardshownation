@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-auth";
+import { writeAuditLog } from "@/lib/audit-log";
 import { db } from "@/lib/db";
 import { getAdminPromoterById } from "@/lib/promoters";
 import { formatShowDate } from "@/lib/utils";
@@ -24,17 +25,24 @@ function readReviewEvery(formData: FormData) {
 
 async function toggleVerified(organizerId: string, nextValue: boolean) {
   "use server";
-  await requireAdminSession(`/admin/promoters/${organizerId}`);
+  const session = await requireAdminSession(`/admin/promoters/${organizerId}`);
   await db.organizer.update({
     where: { id: organizerId },
     data: { verified: nextValue },
+  });
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: nextValue ? "promoter.verified" : "promoter.unverified",
+    targetType: "Organizer",
+    targetId: organizerId,
   });
   redirect(`/admin/promoters/${organizerId}`);
 }
 
 async function createTrustedCity(organizerId: string, formData: FormData) {
   "use server";
-  await requireAdminSession(`/admin/promoters/${organizerId}`);
+  const session = await requireAdminSession(`/admin/promoters/${organizerId}`);
 
   const cityValue = formData.get("city");
   const stateValue = formData.get("state");
@@ -46,7 +54,7 @@ async function createTrustedCity(organizerId: string, formData: FormData) {
     redirect(`/admin/promoters/${organizerId}`);
   }
 
-  await db.organizerApproval.upsert({
+  const approval = await db.organizerApproval.upsert({
     where: {
       organizerId_city_state: {
         organizerId,
@@ -67,17 +75,43 @@ async function createTrustedCity(organizerId: string, formData: FormData) {
     },
   });
 
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "promoter.trust_enabled",
+    targetType: "OrganizerApproval",
+    targetId: approval.id,
+    details: {
+      organizerId,
+      city,
+      state,
+      reviewEvery,
+    },
+  });
+
   redirect(`/admin/promoters/${organizerId}`);
 }
 
 async function updateTrustedCity(organizerId: string, approvalId: string, formData: FormData) {
   "use server";
-  await requireAdminSession(`/admin/promoters/${organizerId}`);
+  const session = await requireAdminSession(`/admin/promoters/${organizerId}`);
+  const reviewEvery = readReviewEvery(formData);
   await db.organizerApproval.update({
     where: { id: approvalId },
     data: {
       autoApprove: true,
-      reviewEvery: readReviewEvery(formData),
+      reviewEvery,
+    },
+  });
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "promoter.trust_updated",
+    targetType: "OrganizerApproval",
+    targetId: approvalId,
+    details: {
+      organizerId,
+      reviewEvery,
     },
   });
   redirect(`/admin/promoters/${organizerId}`);
@@ -85,8 +119,18 @@ async function updateTrustedCity(organizerId: string, approvalId: string, formDa
 
 async function removeTrustedCity(organizerId: string, approvalId: string) {
   "use server";
-  await requireAdminSession(`/admin/promoters/${organizerId}`);
+  const session = await requireAdminSession(`/admin/promoters/${organizerId}`);
   await db.organizerApproval.delete({ where: { id: approvalId } });
+  await writeAuditLog({
+    actorId: session.user.id,
+    actorRole: "ADMIN",
+    action: "promoter.trust_removed",
+    targetType: "OrganizerApproval",
+    targetId: approvalId,
+    details: {
+      organizerId,
+    },
+  });
   redirect(`/admin/promoters/${organizerId}`);
 }
 
