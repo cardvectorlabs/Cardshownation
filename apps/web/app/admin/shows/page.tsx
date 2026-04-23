@@ -1,10 +1,10 @@
 import Link from "next/link";
-import { FileUp } from "lucide-react";
+import { FileUp, Search } from "lucide-react";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { getAdminShows } from "@/lib/shows";
 import { formatShowDate } from "@/lib/utils";
 
-type SearchParams = { status?: string; stale?: string; page?: string };
+type SearchParams = { status?: string; stale?: string; page?: string; q?: string };
 
 export const dynamic = "force-dynamic";
 
@@ -24,6 +24,7 @@ export default async function AdminShowsPage({
   const { shows, total } = await getAdminShows({
     status: sp.status,
     stale: sp.stale === "1",
+    q: sp.q,
     limit,
     offset,
   });
@@ -37,6 +38,16 @@ export default async function AdminShowsPage({
     { label: "Rejected", href: "/admin/shows?status=REJECTED" },
     { label: "Stale (90d)", href: "/admin/shows?stale=1" },
   ];
+  const filterHref = (href: string) => {
+    const [pathname, queryString] = href.split("?");
+    const params = new URLSearchParams(queryString ?? "");
+    if (sp.q) {
+      params.set("q", sp.q);
+    }
+
+    const serialized = params.toString();
+    return serialized ? `${pathname}?${serialized}` : pathname;
+  };
 
   return (
     <div className="p-6 lg:p-10">
@@ -56,6 +67,39 @@ export default async function AdminShowsPage({
         </Link>
       </div>
 
+      <form action="/admin/shows" method="get" className="mb-6">
+        <div className="flex flex-col gap-3 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <input
+              type="search"
+              name="q"
+              defaultValue={sp.q ?? ""}
+              placeholder="Search by show, city, slug, or promoter"
+              className="w-full rounded-full border border-slate-200 bg-white py-3 pl-11 pr-4 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
+            />
+          </div>
+          {sp.status && <input type="hidden" name="status" value={sp.status} />}
+          {sp.stale && <input type="hidden" name="stale" value={sp.stale} />}
+          <button
+            type="submit"
+            className="inline-flex items-center justify-center rounded-full bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+          >
+            Search
+          </button>
+          {sp.q && (
+            <Link
+              href={filterHref(
+                sp.status ? `/admin/shows?status=${sp.status}` : sp.stale ? "/admin/shows?stale=1" : "/admin/shows"
+              )}
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              Clear
+            </Link>
+          )}
+        </div>
+      </form>
+
       <div className="mb-6 flex flex-wrap gap-2">
         {statusFilters.map((filter) => {
           const isActive =
@@ -69,7 +113,7 @@ export default async function AdminShowsPage({
           return (
             <Link
               key={filter.href}
-              href={filter.href}
+              href={filterHref(filter.href)}
               className={`rounded-full px-4 py-1.5 text-sm font-medium transition-colors ${
                 isActive
                   ? "bg-brand-600 text-white"
@@ -119,6 +163,11 @@ export default async function AdminShowsPage({
                     <p className="text-xs text-slate-400">
                       {show.city}, {show.state}
                     </p>
+                    {show.organizer && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        Promoter: {show.organizer.name ?? show.organizer.email ?? "Assigned"}
+                      </p>
+                    )}
                   </td>
                   <td className="hidden px-4 py-3 text-xs text-slate-500 md:table-cell">
                     {formatShowDate(show.startDate, show.endDate)}

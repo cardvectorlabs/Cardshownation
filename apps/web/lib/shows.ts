@@ -889,15 +889,18 @@ export async function getRecentAdminShows(limit = 10) {
 export async function getAdminShows({
   status,
   stale,
+  q,
   limit = 30,
   offset = 0,
 }: {
   status?: string;
   stale?: boolean;
+  q?: string;
   limit?: number;
   offset?: number;
 }) {
   const staleDate = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000);
+  const query = q?.trim().toLowerCase();
 
   if (isFixtureMode()) {
     let shows = await getAllFixtureShows();
@@ -914,6 +917,23 @@ export async function getAdminShows({
       );
     }
 
+    if (query) {
+      shows = shows.filter((show) => {
+        const haystack = [
+          show.title,
+          show.slug,
+          show.city,
+          show.state,
+          show.organizer?.name ?? "",
+          show.organizer?.email ?? "",
+        ]
+          .join(" ")
+          .toLowerCase();
+
+        return haystack.includes(query);
+      });
+    }
+
     shows = shows.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
     return {
@@ -927,6 +947,21 @@ export async function getAdminShows({
   if (stale) {
     where.status = "APPROVED";
     where.OR = [{ lastVerifiedAt: null }, { lastVerifiedAt: { lt: staleDate } }];
+  }
+  if (query) {
+    where.AND = [
+      ...(where.AND ?? []),
+      {
+        OR: [
+          { title: { contains: query, mode: "insensitive" } },
+          { slug: { contains: query, mode: "insensitive" } },
+          { city: { contains: query, mode: "insensitive" } },
+          { state: { equals: query.toUpperCase() } },
+          { organizer: { is: { name: { contains: query, mode: "insensitive" } } } },
+          { organizer: { is: { email: { contains: query, mode: "insensitive" } } } },
+        ],
+      },
+    ];
   }
 
   const [shows, total] = await Promise.all([
@@ -946,6 +981,12 @@ export async function getAdminShows({
         lastVerifiedAt: true,
         slug: true,
         sourceType: true,
+        organizer: {
+          select: {
+            name: true,
+            email: true,
+          },
+        },
       },
     }),
     db.show.count({ where }),
