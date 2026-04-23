@@ -4,10 +4,17 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
 import { updateFixtureShow } from "@/lib/fixture-store";
-import { getAdminShowById } from "@/lib/shows";
+import {
+  assignShowToPromoterByEmail,
+  clearShowPromoterAssignment,
+  getAdminShowById,
+} from "@/lib/shows";
 import { formatShowDate } from "@/lib/utils";
 
-type Props = { params: Promise<{ id: string }> };
+type Props = {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ assign?: string }>;
+};
 
 export const dynamic = "force-dynamic";
 
@@ -150,8 +157,29 @@ async function untrustPromoterForCity(showId: string) {
   redirect(`/admin/shows/${showId}`);
 }
 
-export default async function AdminShowDetailPage({ params }: Props) {
+async function assignPromoter(showId: string, formData: FormData) {
+  "use server";
+  await requireAdminSession(`/admin/shows/${showId}`);
+
+  const emailValue = formData.get("promoterEmail");
+  const email = typeof emailValue === "string" ? emailValue.trim() : "";
+  const result = await assignShowToPromoterByEmail(showId, email);
+
+  const status =
+    result.success ? "assigned" : result.reason === "not-found" ? "missing" : "invalid";
+  redirect(`/admin/shows/${showId}?assign=${status}`);
+}
+
+async function clearPromoter(showId: string) {
+  "use server";
+  await requireAdminSession(`/admin/shows/${showId}`);
+  await clearShowPromoterAssignment(showId);
+  redirect(`/admin/shows/${showId}?assign=cleared`);
+}
+
+export default async function AdminShowDetailPage({ params, searchParams }: Props) {
   const { id } = await params;
+  const sp = await searchParams;
   await requireAdminSession(`/admin/shows/${id}`);
   const show = await getAdminShowById(id);
 
@@ -162,6 +190,8 @@ export default async function AdminShowDetailPage({ params }: Props) {
   const markVerifiedWithId = markVerified.bind(null, show.id);
   const trustPromoterWithId = trustPromoterForCity.bind(null, show.id);
   const untrustPromoterWithId = untrustPromoterForCity.bind(null, show.id);
+  const assignPromoterWithId = assignPromoter.bind(null, show.id);
+  const clearPromoterWithId = clearPromoter.bind(null, show.id);
   const isMutable = !isFixtureMode() || show.id.startsWith("local-show-");
   const cityApproval =
     !isFixtureMode() && show.organizerId
@@ -190,6 +220,15 @@ export default async function AdminShowDetailPage({ params }: Props) {
           View live ↗
         </Link>
       </div>
+
+      {sp.assign && (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          {sp.assign === "assigned" && "Promoter account assigned to this show."}
+          {sp.assign === "cleared" && "Promoter assignment removed from this show."}
+          {sp.assign === "missing" && "No promoter account matched that email address."}
+          {sp.assign === "invalid" && "Enter a promoter account email to assign this show."}
+        </div>
+      )}
 
       <div className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
         <div>
@@ -365,8 +404,46 @@ export default async function AdminShowDetailPage({ params }: Props) {
                   : "Not trusted for this city"
               }
             />
+            <div className="flex flex-col gap-3 px-5 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <p className="text-xs font-medium text-slate-400">Promoter assignment</p>
+                <p className="mt-1 text-sm text-slate-900">
+                  This show is currently linked to {show.organizer.name}.
+                </p>
+              </div>
+              <form action={clearPromoterWithId}>
+                <button
+                  type="submit"
+                  className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
+                >
+                  Remove assignment
+                </button>
+              </form>
+            </div>
           </Section>
         )}
+
+        <Section title="Assign To Promoter">
+          <div className="px-5 py-4">
+            <p className="text-sm text-slate-600">
+              Link this show to an existing promoter account by organizer email or login email so it appears under that promoter dashboard.
+            </p>
+            <form action={assignPromoterWithId} className="mt-4 flex flex-col gap-3 sm:flex-row">
+              <input
+                name="promoterEmail"
+                type="email"
+                placeholder="promoter@example.com"
+                className="flex-1 rounded-lg border border-slate-200 px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+              />
+              <button
+                type="submit"
+                className="rounded-lg bg-brand-600 px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+              >
+                Assign promoter
+              </button>
+            </form>
+          </div>
+        </Section>
 
         <Section title="Links">
           <Field label="Website" value={show.websiteUrl ?? "—"} />

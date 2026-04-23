@@ -14,6 +14,7 @@ datasource db {
 
 enum UserRole {
   FAN
+  MODERATOR
   ORGANIZER
   ADMIN
 }
@@ -49,6 +50,7 @@ model User {
   updatedAt  DateTime   @updatedAt
   savedShows SavedShow[]
   reports    ShowReport[]
+  moderatedSubmissions ShowSubmission[] @relation("SubmissionReviewer")
   organizer  Organizer?
 }
 
@@ -176,9 +178,13 @@ model ShowSubmission {
   payloadJson    Json
   status         SubmissionStatus @default(PENDING)
   notes          String?
+  reviewerId     String?
+  reviewerRole   UserRole?
   reviewedShowId String?          // linked Show id after approval
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
+
+  reviewer User? @relation("SubmissionReviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
 }
 
 model ShowReport {

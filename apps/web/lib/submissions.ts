@@ -10,6 +10,7 @@ import {
 } from "@/lib/fixture-store";
 import { slugify } from "@/lib/utils";
 import { normalizeExternalUrl } from "@/lib/url";
+import type { UserRole } from "@csn/db";
 
 function readString(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
@@ -216,6 +217,16 @@ export async function getAllSubmissions() {
   }
 
   return db.showSubmission.findMany({
+    include: {
+      reviewer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
 }
@@ -228,6 +239,16 @@ export async function getPendingSubmissions() {
   }
 
   return db.showSubmission.findMany({
+    include: {
+      reviewer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
     where: { status: "PENDING" },
     orderBy: { createdAt: "asc" },
   });
@@ -238,10 +259,29 @@ export async function getSubmissionById(id: string) {
     return getFixtureSubmissionById(id);
   }
 
-  return db.showSubmission.findUnique({ where: { id } });
+  return db.showSubmission.findUnique({
+    where: { id },
+    include: {
+      reviewer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+  });
 }
 
-export async function approveShowSubmission(submissionId: string) {
+export async function approveShowSubmission(
+  submissionId: string,
+  options?: {
+    reviewerId?: string | null;
+    reviewerRole?: UserRole | null;
+    notes?: string | null;
+  }
+) {
   if (isFixtureMode()) {
     return approveFixtureSubmission(submissionId);
   }
@@ -263,7 +303,13 @@ export async function approveShowSubmission(submissionId: string) {
 
   await db.showSubmission.update({
     where: { id: submissionId },
-    data: { status: "APPROVED", reviewedShowId: show.id },
+    data: {
+      status: "APPROVED",
+      reviewedShowId: show.id,
+      reviewerId: options?.reviewerId ?? null,
+      reviewerRole: options?.reviewerRole ?? null,
+      notes: options?.notes ?? null,
+    },
   });
 
   return show;
@@ -306,7 +352,11 @@ export async function setOrganizerAutoApprovalForPayload(
 
 export async function rejectShowSubmission(
   submissionId: string,
-  notes: string | null
+  notes: string | null,
+  options?: {
+    reviewerId?: string | null;
+    reviewerRole?: UserRole | null;
+  }
 ) {
   if (isFixtureMode()) {
     return rejectFixtureSubmission(submissionId, notes);
@@ -314,6 +364,11 @@ export async function rejectShowSubmission(
 
   return db.showSubmission.update({
     where: { id: submissionId },
-    data: { status: "REJECTED", notes },
+    data: {
+      status: "REJECTED",
+      notes,
+      reviewerId: options?.reviewerId ?? null,
+      reviewerRole: options?.reviewerRole ?? null,
+    },
   });
 }

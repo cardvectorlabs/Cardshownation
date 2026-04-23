@@ -105,6 +105,7 @@ export default async function ReviewSubmissionPage({ params }: Props) {
     ["Admission Notes", payload.admissionNotes],
     ["Parking", payload.parkingInfo],
   ];
+  const reviewer = "reviewer" in submission ? submission.reviewer : null;
 
   return (
     <div className="max-w-3xl p-6 lg:p-10">
@@ -132,6 +133,13 @@ export default async function ReviewSubmissionPage({ params }: Props) {
         Submitted by {submission.submitterName} ({submission.submitterEmail}) on{" "}
         {new Date(submission.createdAt).toLocaleDateString()}
       </p>
+
+      {reviewer && (
+        <div className="mb-6 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+          Reviewed by {reviewer.name ?? reviewer.email} ({reviewer.role.toLowerCase()})
+          {submission.notes ? ` · ${submission.notes}` : ""}
+        </div>
+      )}
 
       <div className="mb-8 overflow-hidden rounded-xl border border-slate-200 bg-white">
         <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">

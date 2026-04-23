@@ -1120,3 +1120,46 @@ export async function getAdminShowById(id: string) {
     include: { venue: true, organizer: true, tags: true },
   });
 }
+
+export async function assignShowToPromoterByEmail(showId: string, email: string) {
+  if (isFixtureMode()) {
+    return { success: false, reason: "fixture-mode" as const };
+  }
+
+  const normalizedEmail = email.trim().toLowerCase();
+  if (!normalizedEmail) {
+    return { success: false, reason: "missing-email" as const };
+  }
+
+  const organizer = await db.organizer.findFirst({
+    where: {
+      OR: [
+        { email: { equals: normalizedEmail, mode: "insensitive" } },
+        { user: { is: { email: { equals: normalizedEmail, mode: "insensitive" } } } },
+      ],
+    },
+    select: { id: true },
+  });
+
+  if (!organizer) {
+    return { success: false, reason: "not-found" as const };
+  }
+
+  await db.show.update({
+    where: { id: showId },
+    data: { organizerId: organizer.id },
+  });
+
+  return { success: true as const, reason: null };
+}
+
+export async function clearShowPromoterAssignment(showId: string) {
+  if (isFixtureMode()) {
+    return;
+  }
+
+  await db.show.update({
+    where: { id: showId },
+    data: { organizerId: null },
+  });
+}
