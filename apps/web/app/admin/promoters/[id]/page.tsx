@@ -9,6 +9,19 @@ type Props = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
+function readReviewEvery(formData: FormData) {
+  const reviewEveryValue = formData.get("reviewEvery");
+  return Math.max(
+    1,
+    Math.min(
+      10,
+      typeof reviewEveryValue === "string"
+        ? Number.parseInt(reviewEveryValue, 10) || 4
+        : 4
+    )
+  );
+}
+
 async function toggleVerified(organizerId: string, nextValue: boolean) {
   "use server";
   await requireAdminSession(`/admin/promoters/${organizerId}`);
@@ -25,18 +38,9 @@ async function createTrustedCity(organizerId: string, formData: FormData) {
 
   const cityValue = formData.get("city");
   const stateValue = formData.get("state");
-  const reviewEveryValue = formData.get("reviewEvery");
   const city = typeof cityValue === "string" ? cityValue.trim() : "";
   const state = typeof stateValue === "string" ? stateValue.trim().toUpperCase() : "";
-  const reviewEvery = Math.max(
-    1,
-    Math.min(
-      10,
-      typeof reviewEveryValue === "string"
-        ? Number.parseInt(reviewEveryValue, 10) || 4
-        : 4
-    )
-  );
+  const reviewEvery = readReviewEvery(formData);
 
   if (!city || state.length !== 2) {
     redirect(`/admin/promoters/${organizerId}`);
@@ -63,6 +67,19 @@ async function createTrustedCity(organizerId: string, formData: FormData) {
     },
   });
 
+  redirect(`/admin/promoters/${organizerId}`);
+}
+
+async function updateTrustedCity(organizerId: string, approvalId: string, formData: FormData) {
+  "use server";
+  await requireAdminSession(`/admin/promoters/${organizerId}`);
+  await db.organizerApproval.update({
+    where: { id: approvalId },
+    data: {
+      autoApprove: true,
+      reviewEvery: readReviewEvery(formData),
+    },
+  });
   redirect(`/admin/promoters/${organizerId}`);
 }
 
@@ -185,14 +202,35 @@ export default async function AdminPromoterDetailPage({ params }: Props) {
                         {approval.reviewEvery}
                       </p>
                     </div>
-                    <form action={removeTrustedCity.bind(null, promoter.id, approval.id)}>
-                      <button
-                        type="submit"
-                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                    <div className="flex items-center gap-2">
+                      <form
+                        action={updateTrustedCity.bind(null, promoter.id, approval.id)}
+                        className="flex items-center gap-2"
                       >
-                        Remove
-                      </button>
-                    </form>
+                        <input
+                          name="reviewEvery"
+                          type="number"
+                          min={1}
+                          max={10}
+                          defaultValue={approval.reviewEvery}
+                          className="w-16 rounded-lg border border-slate-200 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                        />
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+                        >
+                          Update
+                        </button>
+                      </form>
+                      <form action={removeTrustedCity.bind(null, promoter.id, approval.id)}>
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                        >
+                          Remove
+                        </button>
+                      </form>
+                    </div>
                   </div>
                 ))}
               </div>

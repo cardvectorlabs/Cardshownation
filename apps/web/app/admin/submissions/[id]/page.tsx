@@ -4,6 +4,7 @@ import { requireAdminSession } from "@/lib/admin-auth";
 import {
   approveShowSubmission,
   getSubmissionById,
+  getOrganizerApprovalForPayload,
   rejectShowSubmission,
   setOrganizerAutoApprovalForPayload,
 } from "@/lib/submissions";
@@ -11,6 +12,19 @@ import {
 type Props = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
+
+function readReviewEvery(formData: FormData) {
+  const reviewEveryValue = formData.get("reviewEvery");
+  return Math.max(
+    1,
+    Math.min(
+      10,
+      typeof reviewEveryValue === "string"
+        ? Number.parseInt(reviewEveryValue, 10) || 4
+        : 4
+    )
+  );
+}
 
 async function approveSubmission(submissionId: string, formData: FormData) {
   "use server";
@@ -22,7 +36,8 @@ async function approveSubmission(submissionId: string, formData: FormData) {
   if (grantAutoApproval) {
     await setOrganizerAutoApprovalForPayload(
       submission.payloadJson as Record<string, unknown>,
-      true
+      true,
+      readReviewEvery(formData)
     );
   }
 
@@ -52,6 +67,10 @@ export default async function ReviewSubmissionPage({ params }: Props) {
     typeof payload.organizerId === "string" &&
     typeof payload.city === "string" &&
     typeof payload.state === "string";
+  const approval =
+    hasOrganizerApprovalContext
+      ? await getOrganizerApprovalForPayload(payload)
+      : null;
   const approveWithId = approveSubmission.bind(null, submission.id);
   const rejectWithId = rejectSubmission.bind(null, submission.id);
   const submittedFields: [string, unknown][] = [
@@ -134,21 +153,52 @@ export default async function ReviewSubmissionPage({ params }: Props) {
         </div>
       </div>
 
+      {hasOrganizerApprovalContext && (
+        <div className="mb-8 rounded-xl border border-slate-200 bg-slate-50 p-5">
+          <h2 className="text-sm font-semibold text-slate-700">Promoter Trust For This Market</h2>
+          <p className="mt-2 text-sm text-slate-600">
+            {approval?.autoApprove
+              ? `${String(payload.city)}, ${String(payload.state)} is already trusted. ${approval.approvedShowCount} approved shows so far, with a spot check every ${approval.reviewEvery}.`
+              : `${String(payload.city)}, ${String(payload.state)} is not trusted yet. Approving this show can also enable auto-approval for future submissions in this market.`}
+          </p>
+        </div>
+      )}
+
       {isPending ? (
         <div className="space-y-4">
           <form action={approveWithId}>
-            {hasOrganizerApprovalContext && (
-              <label className="mb-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                <input
-                  type="checkbox"
-                  name="grantAutoApproval"
-                  className="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
-                />
-                <span>
-                  Trust this promoter for future shows in {String(payload.city)},{" "}
-                  {String(payload.state)} and spot check every 4th show.
-                </span>
-              </label>
+            {hasOrganizerApprovalContext && !approval?.autoApprove && (
+              <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+                <label className="flex items-start gap-3 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    name="grantAutoApproval"
+                    className="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  <span>
+                    Trust this promoter for future shows in {String(payload.city)},{" "}
+                    {String(payload.state)}.
+                  </span>
+                </label>
+                <div className="mt-3 flex items-center gap-3">
+                  <label
+                    htmlFor="reviewEvery"
+                    className="text-xs font-medium uppercase tracking-wide text-slate-500"
+                  >
+                    Spot check every
+                  </label>
+                  <input
+                    id="reviewEvery"
+                    name="reviewEvery"
+                    type="number"
+                    min={1}
+                    max={10}
+                    defaultValue={4}
+                    className="w-20 rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  />
+                  <span className="text-sm text-slate-500">approved shows</span>
+                </div>
+              </div>
             )}
             <button
               type="submit"

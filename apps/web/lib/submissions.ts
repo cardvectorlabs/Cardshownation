@@ -38,6 +38,23 @@ function getApprovalLookup(payload: Record<string, unknown>) {
   };
 }
 
+export async function getOrganizerApprovalForPayload(payload: Record<string, unknown>) {
+  const lookup = getApprovalLookup(payload);
+  if (!lookup || isFixtureMode()) {
+    return null;
+  }
+
+  return db.organizerApproval.findUnique({
+    where: {
+      organizerId_city_state: {
+        organizerId: lookup.organizerId,
+        city: lookup.city,
+        state: lookup.state,
+      },
+    },
+  });
+}
+
 async function bumpOrganizerApprovalCount(payload: Record<string, unknown>) {
   const lookup = getApprovalLookup(payload);
   if (!lookup) {
@@ -254,12 +271,16 @@ export async function approveShowSubmission(submissionId: string) {
 
 export async function setOrganizerAutoApprovalForPayload(
   payload: Record<string, unknown>,
-  enabled: boolean
+  enabled: boolean,
+  reviewEvery?: number
 ) {
   const lookup = getApprovalLookup(payload);
   if (!lookup) {
     return null;
   }
+
+  const normalizedReviewEvery =
+    typeof reviewEvery === "number" ? Math.max(1, Math.min(10, reviewEvery)) : 4;
 
   return db.organizerApproval.upsert({
     where: {
@@ -274,9 +295,11 @@ export async function setOrganizerAutoApprovalForPayload(
       city: lookup.city,
       state: lookup.state,
       autoApprove: enabled,
+      reviewEvery: normalizedReviewEvery,
     },
     update: {
       autoApprove: enabled,
+      reviewEvery: normalizedReviewEvery,
     },
   });
 }

@@ -11,6 +11,19 @@ type Props = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
+function readReviewEvery(formData: FormData) {
+  const reviewEveryValue = formData.get("reviewEvery");
+  return Math.max(
+    1,
+    Math.min(
+      10,
+      typeof reviewEveryValue === "string"
+        ? Number.parseInt(reviewEveryValue, 10) || 4
+        : 4
+    )
+  );
+}
+
 async function approveShow(showId: string) {
   "use server";
   await requireAdminSession(`/admin/shows/${showId}`);
@@ -66,7 +79,7 @@ async function markVerified(showId: string) {
   redirect(`/admin/shows/${showId}`);
 }
 
-async function trustPromoterForCity(showId: string) {
+async function trustPromoterForCity(showId: string, formData: FormData) {
   "use server";
   await requireAdminSession(`/admin/shows/${showId}`);
 
@@ -83,6 +96,8 @@ async function trustPromoterForCity(showId: string) {
     redirect(`/admin/shows/${showId}`);
   }
 
+  const reviewEvery = readReviewEvery(formData);
+
   await db.organizerApproval.upsert({
     where: {
       organizerId_city_state: {
@@ -96,10 +111,11 @@ async function trustPromoterForCity(showId: string) {
       city: show.city,
       state: show.state,
       autoApprove: true,
-      reviewEvery: 4,
+      reviewEvery,
     },
     update: {
       autoApprove: true,
+      reviewEvery,
     },
   });
 
@@ -218,19 +234,67 @@ export default async function AdminShowDetailPage({ params }: Props) {
             </form>
             {show.organizerId && (
               cityApproval ? (
-                <form action={untrustPromoterWithId}>
-                  <button
-                    type="submit"
-                    className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100"
+                <>
+                  <form
+                    action={trustPromoterWithId}
+                    className="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2"
                   >
-                    Remove City Trust
-                  </button>
-                </form>
+                    <label
+                      htmlFor="reviewEvery"
+                      className="text-xs font-medium text-slate-500"
+                    >
+                      Spot check every
+                    </label>
+                    <input
+                      id="reviewEvery"
+                      name="reviewEvery"
+                      type="number"
+                      min={1}
+                      max={10}
+                      defaultValue={cityApproval.reviewEvery}
+                      className="w-16 rounded-md border border-slate-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                    />
+                    <span className="text-xs text-slate-500">shows</span>
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-brand-200 bg-white px-3 py-1.5 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-50"
+                    >
+                      Update Trust
+                    </button>
+                  </form>
+                  <form action={untrustPromoterWithId}>
+                    <button
+                      type="submit"
+                      className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100"
+                    >
+                      Remove City Trust
+                    </button>
+                  </form>
+                </>
               ) : (
-                <form action={trustPromoterWithId}>
+                <form
+                  action={trustPromoterWithId}
+                  className="flex items-center gap-2 rounded-lg border border-brand-200 bg-brand-50 px-3 py-2"
+                >
+                  <label
+                    htmlFor="reviewEvery"
+                    className="text-xs font-medium text-brand-800"
+                  >
+                    Spot check every
+                  </label>
+                  <input
+                    id="reviewEvery"
+                    name="reviewEvery"
+                    type="number"
+                    min={1}
+                    max={10}
+                    defaultValue={4}
+                    className="w-16 rounded-md border border-brand-200 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
+                  />
+                  <span className="text-xs text-brand-800">shows</span>
                   <button
                     type="submit"
-                    className="rounded-lg border border-brand-200 bg-brand-50 px-5 py-2 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-100"
+                    className="rounded-lg bg-brand-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-brand-700"
                   >
                     Trust Promoter For This City
                   </button>
@@ -297,7 +361,7 @@ export default async function AdminShowDetailPage({ params }: Props) {
               label="City Trust"
               value={
                 cityApproval
-                  ? `${show.city}, ${show.state} · review every ${cityApproval.reviewEvery}`
+                  ? `${show.city}, ${show.state} · ${cityApproval.approvedShowCount} approved shows · review every ${cityApproval.reviewEvery}`
                   : "Not trusted for this city"
               }
             />

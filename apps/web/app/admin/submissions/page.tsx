@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-auth";
-import { getAllSubmissions } from "@/lib/submissions";
+import { getAllSubmissions, getOrganizerApprovalForPayload } from "@/lib/submissions";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,16 @@ export default async function SubmissionsPage() {
   const submissions = await getAllSubmissions();
   const pending = submissions.filter((submission) => submission.status === "PENDING");
   const reviewed = submissions.filter((submission) => submission.status !== "PENDING");
+  const withTrust = await Promise.all(
+    submissions.map(async (submission) => ({
+      submission,
+      approval: await getOrganizerApprovalForPayload(
+        submission.payloadJson as Record<string, unknown>
+      ),
+    }))
+  );
+  const pendingRows = withTrust.filter(({ submission }) => submission.status === "PENDING");
+  const reviewedRows = withTrust.filter(({ submission }) => submission.status !== "PENDING");
 
   return (
     <div className="p-6 lg:p-10">
@@ -23,14 +33,14 @@ export default async function SubmissionsPage() {
       </h1>
 
       <SubmissionTable
-        submissions={pending}
+        rows={pendingRows}
         title="Pending Review"
         emptyText="All caught up."
       />
 
       <div className="mt-10">
         <SubmissionTable
-          submissions={reviewed.slice(0, 30)}
+          rows={reviewedRows.slice(0, 30)}
           title="Recently Reviewed"
           emptyText="No reviewed submissions yet."
         />
@@ -40,18 +50,18 @@ export default async function SubmissionsPage() {
 }
 
 function SubmissionTable({
-  submissions,
+  rows,
   title,
   emptyText,
 }: {
-  submissions: any[];
+  rows: Array<{ submission: any; approval: any }>;
   title: string;
   emptyText: string;
 }) {
   return (
     <div>
       <h2 className="mb-4 text-base font-semibold text-slate-700">{title}</h2>
-      {submissions.length === 0 ? (
+      {rows.length === 0 ? (
         <div className="rounded-xl border border-slate-200 bg-slate-50 py-10 text-center text-sm text-slate-400">
           {emptyText}
         </div>
@@ -69,6 +79,9 @@ function SubmissionTable({
                 <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 md:table-cell">
                   Submitted
                 </th>
+                <th className="hidden px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500 lg:table-cell">
+                  Trust
+                </th>
                 <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">
                   Status
                 </th>
@@ -76,7 +89,7 @@ function SubmissionTable({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {submissions.map((submission: (typeof submissions)[0]) => {
+              {rows.map(({ submission, approval }) => {
                 const payload = submission.payloadJson as Record<string, unknown>;
 
                 return (
@@ -96,6 +109,17 @@ function SubmissionTable({
                     </td>
                     <td className="hidden px-4 py-3 text-xs text-slate-400 md:table-cell">
                       {new Date(submission.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="hidden px-4 py-3 lg:table-cell">
+                      {approval?.autoApprove ? (
+                        <span className="inline-flex items-center rounded-full bg-green-50 px-2.5 py-0.5 text-xs font-medium text-green-700">
+                          Trusted · every {approval.reviewEvery}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-500">
+                          Standard review
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <span
