@@ -86,7 +86,7 @@ export default async function PromoterLoginPage({
   const next = sanitizePromoterRedirectTarget(sp.next ?? sp.from);
   const errorMessage =
     sp.error === "disabled"
-      ? "Promoter portal is disabled until PROMOTER_SESSION_SECRET is set on the server."
+      ? "Promoter login is temporarily unavailable."
       : sp.error === "rate"
       ? "Too many attempts. Wait 30 minutes and try again."
       : sp.error === "invalid"
@@ -105,12 +105,6 @@ export default async function PromoterLoginPage({
         <p className="mt-4 text-base leading-7 text-slate-600">
           Access your saved promoter profile and mobile show posting tools.
         </p>
-
-        {!secret && (
-          <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set `PROMOTER_SESSION_SECRET` to enable promoter sign-in.
-          </p>
-        )}
 
         {errorMessage && (
           <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

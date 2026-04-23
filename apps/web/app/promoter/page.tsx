@@ -21,15 +21,15 @@ export default async function PromoterPortalPage({
   if (!secret) {
     return (
       <div className="container-narrow py-10">
-        <div className="rounded-[2rem] border border-amber-200 bg-amber-50 p-6 text-amber-900 shadow-sm sm:p-8">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 text-slate-900 shadow-sm sm:p-8">
           <p className="text-sm font-semibold uppercase tracking-[0.2em]">
             Promoter portal unavailable
           </p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">
-            Set a session secret to enable promoter accounts
+            Promoter access is temporarily unavailable
           </h1>
-          <p className="mt-4 text-base leading-7">
-            Add `PROMOTER_SESSION_SECRET` to the web app environment, then reload this page.
+          <p className="mt-4 text-base leading-7 text-slate-600">
+            Please try again later or contact support if you need immediate access.
           </p>
         </div>
       </div>

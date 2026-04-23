@@ -127,7 +127,7 @@ export default async function PromoterSignupPage({
     sp.error === "exists"
       ? "A promoter account already exists for that email."
       : sp.error === "disabled"
-        ? "Promoter signup is disabled until PROMOTER_SESSION_SECRET is set on the server."
+        ? "Promoter signup is temporarily unavailable."
       : sp.error === "rate"
         ? "Too many attempts. Wait a bit and try again."
       : sp.error === "validation"
@@ -147,12 +147,6 @@ export default async function PromoterSignupPage({
           Save your promoter profile once, then post new shows from your phone without retyping
           your organizer information every time.
         </p>
-
-        {!secret && (
-          <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set `PROMOTER_SESSION_SECRET` before creating promoter accounts.
-          </p>
-        )}
 
         {errorMessage && (
           <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
