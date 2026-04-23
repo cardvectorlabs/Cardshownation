@@ -1,4 +1,5 @@
 import { Prisma } from "@csn/db";
+import { customAlphabet } from "nanoid";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
 import { getCityCoords } from "@/lib/city-coords";
@@ -8,6 +9,7 @@ import {
   getFixtureShowById,
   getFixtureShowBySlug,
 } from "@/lib/fixture-store";
+import { slugify } from "@/lib/utils";
 
 export const SHOW_CATEGORIES = [
   "Sports Cards",
@@ -19,6 +21,90 @@ export const SHOW_CATEGORIES = [
   "Trade Night",
   "Autograph Guests",
 ] as const;
+
+const categoryAliases: Record<string, string> = {
+  sports: "Sports Cards",
+  "sports cards": "Sports Cards",
+  pokemon: "Pokemon",
+  tcg: "TCG",
+  mixed: "Mixed",
+  memorabilia: "Memorabilia",
+  comics: "Comics",
+  "trade night": "Trade Night",
+  "autograph guests": "Autograph Guests",
+};
+
+const slugSuffix = customAlphabet("abcdefghijklmnopqrstuvwxyz0123456789", 6);
+
+export type ParsedShowRow = {
+  rowNumber: number;
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  startTimeLabel?: string;
+  endTimeLabel?: string;
+  city?: string;
+  state?: string;
+  timezone?: string;
+  isFree?: string;
+  admissionPrice?: string;
+  admissionNotes?: string;
+  tableCount?: string;
+  estimatedAttendance?: string;
+  categories?: string;
+  description?: string;
+  websiteUrl?: string;
+  facebookUrl?: string;
+  ticketUrl?: string;
+  venueName?: string;
+  venueAddress1?: string;
+  venueAddress2?: string;
+  venuePostalCode?: string;
+  vendorDetails?: string;
+  parkingInfo?: string;
+  loadInInfo?: string;
+  venueNotes?: string;
+  flyerImageUrl?: string;
+};
+
+type BulkCreateShowsResult = {
+  created: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
+};
+
+function normalizeCsvString(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function parseRequiredDate(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function parseOptionalInteger(value: string | null) {
+  if (!value) return { value: null as number | null, error: null as string | null };
+  if (!/^-?\d+$/.test(value)) {
+    return { value: null, error: "must be a whole number" };
+  }
+
+  return { value: Number.parseInt(value, 10), error: null };
+}
+
+function parseCategories(value: string | null) {
+  if (!value) return [];
+
+  return value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => categoryAliases[item.toLowerCase()] ?? item);
+}
 
 const showCardSelect = {
   id: true,
@@ -543,6 +629,237 @@ export async function getAdminShowStats() {
   ]);
 
   return { pending, approved, rejected, stale };
+}
+
+export async function bulkCreateShows(
+  rows: ParsedShowRow[]
+): Promise<BulkCreateShowsResult> {
+  if (isFixtureMode()) {
+    return {
+      created: 0,
+      skipped: rows.length,
+      errors: rows.map((row) => ({
+        row: row.rowNumber,
+        message: "Bulk upload is unavailable in fixture mode.",
+      })),
+    };
+  }
+
+  const errors: BulkCreateShowsResult["errors"] = [];
+  const validRows: Array<{
+    rowNumber: number;
+    title: string;
+    startDate: Date;
+    endDate: Date;
+    startTimeLabel: string | null;
+    endTimeLabel: string | null;
+    city: string;
+    state: string;
+    timezone: string;
+    isFree: boolean;
+    admissionPrice: string | null;
+    admissionNotes: string | null;
+    tableCount: number | null;
+    estimatedAttendance: number | null;
+    categories: string[];
+    description: string | null;
+    websiteUrl: string | null;
+    facebookUrl: string | null;
+    ticketUrl: string | null;
+    venueName: string | null;
+    venueAddress1: string | null;
+    venueAddress2: string | null;
+    venuePostalCode: string | null;
+    vendorDetails: string | null;
+    parkingInfo: string | null;
+    loadInInfo: string | null;
+    venueNotes: string | null;
+    flyerImageUrl: string | null;
+  }> = [];
+
+  for (const row of rows) {
+    const title = normalizeCsvString(row.title);
+    const startDateValue = normalizeCsvString(row.startDate);
+    const endDateValue = normalizeCsvString(row.endDate);
+    const city = normalizeCsvString(row.city);
+    const state = normalizeCsvString(row.state)?.toUpperCase() ?? null;
+    const startDate = parseRequiredDate(startDateValue);
+    const endDate = parseRequiredDate(endDateValue);
+    const tableCount = parseOptionalInteger(normalizeCsvString(row.tableCount));
+    const estimatedAttendance = parseOptionalInteger(
+      normalizeCsvString(row.estimatedAttendance)
+    );
+    const isFreeValue = normalizeCsvString(row.isFree)?.toLowerCase();
+
+    if (!title || !startDateValue || !endDateValue || !city || !state) {
+      errors.push({
+        row: row.rowNumber,
+        message: "Missing required fields: title, startDate, endDate, city, and state are required.",
+      });
+      continue;
+    }
+
+    if (!startDate || !endDate) {
+      errors.push({
+        row: row.rowNumber,
+        message: "startDate and endDate must be valid YYYY-MM-DD dates.",
+      });
+      continue;
+    }
+
+    if (endDate < startDate) {
+      errors.push({
+        row: row.rowNumber,
+        message: "endDate must be on or after startDate.",
+      });
+      continue;
+    }
+
+    if (!/^[A-Z]{2}$/.test(state)) {
+      errors.push({
+        row: row.rowNumber,
+        message: "state must be a 2-letter code.",
+      });
+      continue;
+    }
+
+    if (isFreeValue && !["true", "false"].includes(isFreeValue)) {
+      errors.push({
+        row: row.rowNumber,
+        message: 'isFree must be "true" or "false".',
+      });
+      continue;
+    }
+
+    if (tableCount.error) {
+      errors.push({
+        row: row.rowNumber,
+        message: "tableCount must be numeric when provided.",
+      });
+      continue;
+    }
+
+    if (estimatedAttendance.error) {
+      errors.push({
+        row: row.rowNumber,
+        message: "estimatedAttendance must be numeric when provided.",
+      });
+      continue;
+    }
+
+    validRows.push({
+      rowNumber: row.rowNumber,
+      title,
+      startDate,
+      endDate,
+      startTimeLabel: normalizeCsvString(row.startTimeLabel),
+      endTimeLabel: normalizeCsvString(row.endTimeLabel),
+      city,
+      state,
+      timezone: normalizeCsvString(row.timezone) ?? "America/Chicago",
+      isFree: isFreeValue === "true",
+      admissionPrice: normalizeCsvString(row.admissionPrice),
+      admissionNotes: normalizeCsvString(row.admissionNotes),
+      tableCount: tableCount.value,
+      estimatedAttendance: estimatedAttendance.value,
+      categories: parseCategories(normalizeCsvString(row.categories)),
+      description: normalizeCsvString(row.description),
+      websiteUrl: normalizeCsvString(row.websiteUrl),
+      facebookUrl: normalizeCsvString(row.facebookUrl),
+      ticketUrl: normalizeCsvString(row.ticketUrl),
+      venueName: normalizeCsvString(row.venueName),
+      venueAddress1: normalizeCsvString(row.venueAddress1),
+      venueAddress2: normalizeCsvString(row.venueAddress2),
+      venuePostalCode: normalizeCsvString(row.venuePostalCode),
+      vendorDetails: normalizeCsvString(row.vendorDetails),
+      parkingInfo: normalizeCsvString(row.parkingInfo),
+      loadInInfo: normalizeCsvString(row.loadInInfo),
+      venueNotes: normalizeCsvString(row.venueNotes),
+      flyerImageUrl: normalizeCsvString(row.flyerImageUrl),
+    });
+  }
+
+  await db.$transaction(async (tx) => {
+    for (const row of validRows) {
+      let venueId: string | null = null;
+
+      if (row.venueName) {
+        const venue = await tx.venue.upsert({
+          where: {
+            name_city_state: {
+              name: row.venueName,
+              city: row.city,
+              state: row.state,
+            },
+          },
+          create: {
+            name: row.venueName,
+            address1: row.venueAddress1 ?? "Address unavailable",
+            address2: row.venueAddress2,
+            city: row.city,
+            state: row.state,
+            postalCode: row.venuePostalCode,
+            parkingInfo: row.parkingInfo,
+            loadInInfo: row.loadInInfo,
+          },
+          update: {
+            address1: row.venueAddress1 ?? undefined,
+            address2: row.venueAddress2 ?? undefined,
+            postalCode: row.venuePostalCode ?? undefined,
+            parkingInfo: row.parkingInfo ?? undefined,
+            loadInInfo: row.loadInInfo ?? undefined,
+          },
+        });
+
+        venueId = venue.id;
+      }
+
+      const baseSlug = slugify(
+        `${row.title}-${row.city}-${row.state}-${row.startDate.toISOString().slice(0, 10)}`
+      );
+
+      await tx.show.create({
+        data: {
+          title: row.title,
+          slug: `${baseSlug}-${slugSuffix()}`,
+          status: "APPROVED",
+          // The current schema uses MANUAL for admin-created records.
+          sourceType: "MANUAL",
+          timezone: row.timezone,
+          startDate: row.startDate,
+          endDate: row.endDate,
+          startTimeLabel: row.startTimeLabel,
+          endTimeLabel: row.endTimeLabel,
+          city: row.city,
+          state: row.state,
+          isFree: row.isFree,
+          admissionPrice: row.admissionPrice,
+          admissionNotes: row.admissionNotes,
+          tableCount: row.tableCount,
+          estimatedAttendance: row.estimatedAttendance,
+          categories: row.categories,
+          description: row.description,
+          websiteUrl: row.websiteUrl,
+          facebookUrl: row.facebookUrl,
+          ticketUrl: row.ticketUrl,
+          vendorDetails: row.vendorDetails,
+          parkingInfo: row.parkingInfo,
+          loadInInfo: row.loadInInfo,
+          venueNotes: row.venueNotes,
+          flyerImageUrl: row.flyerImageUrl,
+          lastVerifiedAt: new Date(),
+          expiresAt: new Date(row.endDate.getTime() + 24 * 60 * 60 * 1000),
+          venueId,
+        },
+      });
+    }
+  });
+
+  return {
+    created: validRows.length,
+    skipped: errors.length,
+    errors,
+  };
 }
 
 export async function getRecentAdminShows(limit = 10) {
