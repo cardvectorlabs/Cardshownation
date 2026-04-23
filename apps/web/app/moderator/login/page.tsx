@@ -4,6 +4,8 @@ import { authenticateModerator } from "@/lib/moderators";
 import {
   getModeratorSession,
   getModeratorSessionSecret,
+  getModeratorSessionSecretStatus,
+  MIN_MODERATOR_SESSION_SECRET_LENGTH,
   startModeratorSession,
 } from "@/lib/moderator-auth";
 import { getRequestIp } from "@/lib/request-ip";
@@ -71,9 +73,10 @@ export default async function ModeratorLoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
-  const [session, secret, sp] = await Promise.all([
+  const [session, secret, secretStatus, sp] = await Promise.all([
     getModeratorSession(),
     getModeratorSessionSecret(),
+    getModeratorSessionSecretStatus(),
     searchParams,
   ]);
   if (session) {
@@ -83,11 +86,19 @@ export default async function ModeratorLoginPage({
   const from = sanitizeModeratorRedirectTarget(sp.from);
   const errorMessage =
     sp.error === "disabled"
-      ? "Moderator portal is disabled until MODERATOR_SESSION_SECRET is set on the server."
+      ? secret === null
+        ? "Moderator portal is disabled until MODERATOR_SESSION_SECRET is configured with a strong value."
+        : null
       : sp.error === "rate"
       ? "Too many attempts. Wait 30 minutes and try again."
-      : sp.error === "invalid"
+        : sp.error === "invalid"
         ? "Email or password did not match this moderator account."
+        : null;
+  const disabledMessage =
+    secretStatus.error === "missing"
+      ? "Set MODERATOR_SESSION_SECRET to enable moderator sign-in."
+      : secretStatus.error === "too_short"
+        ? `MODERATOR_SESSION_SECRET must be at least ${MIN_MODERATOR_SESSION_SECRET_LENGTH} characters.`
         : null;
 
   return (
@@ -103,9 +114,9 @@ export default async function ModeratorLoginPage({
           Sign in to review submitted shows and flag promoters for admin trust review.
         </p>
 
-        {!secret && (
+        {!secret && disabledMessage && (
           <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set `MODERATOR_SESSION_SECRET` to enable moderator sign-in.
+            {disabledMessage}
           </p>
         )}
 

@@ -13,6 +13,17 @@ import { slugify } from "@/lib/utils";
 import { normalizeExternalUrl } from "@/lib/url";
 import type { UserRole } from "@csn/db";
 
+const reviewerInclude = {
+  reviewer: {
+    select: {
+      id: true,
+      name: true,
+      email: true,
+      role: true,
+    },
+  },
+} as const;
+
 function readString(payload: Record<string, unknown>, key: string) {
   const value = payload[key];
   return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
@@ -218,16 +229,7 @@ export async function getAllSubmissions() {
   }
 
   return db.showSubmission.findMany({
-    include: {
-      reviewer: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      },
-    },
+    include: reviewerInclude,
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
 }
@@ -240,18 +242,25 @@ export async function getPendingSubmissions() {
   }
 
   return db.showSubmission.findMany({
-    include: {
-      reviewer: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      },
-    },
+    include: reviewerInclude,
     where: { status: "PENDING" },
     orderBy: { createdAt: "asc" },
+  });
+}
+
+export async function getModeratorVisibleSubmissions(userId: string) {
+  if (isFixtureMode()) {
+    return (await getFixtureSubmissions()).filter(
+      (submission) => submission.status === "PENDING" || submission.reviewerId === userId
+    );
+  }
+
+  return db.showSubmission.findMany({
+    include: reviewerInclude,
+    where: {
+      OR: [{ status: "PENDING" }, { reviewerId: userId }],
+    },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
   });
 }
 
@@ -262,17 +271,21 @@ export async function getSubmissionById(id: string) {
 
   return db.showSubmission.findUnique({
     where: { id },
-    include: {
-      reviewer: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          role: true,
-        },
-      },
-    },
+    include: reviewerInclude,
   });
+}
+
+export async function getModeratorVisibleSubmissionById(id: string, userId: string) {
+  const submission = await getSubmissionById(id);
+  if (!submission) {
+    return null;
+  }
+
+  if (submission.status === "PENDING" || submission.reviewerId === userId) {
+    return submission;
+  }
+
+  return null;
 }
 
 export async function approveShowSubmission(

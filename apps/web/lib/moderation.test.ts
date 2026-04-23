@@ -7,8 +7,12 @@ process.env.CSN_DATA_MODE = "live";
 let db: typeof import("./db").db;
 let createModeratorSessionToken: typeof import("./moderator-session").createModeratorSessionToken;
 let verifyModeratorSessionToken: typeof import("./moderator-session").verifyModeratorSessionToken;
+let validateModeratorSessionSecret: typeof import("./moderator-auth").validateModeratorSessionSecret;
+let MIN_MODERATOR_SESSION_SECRET_LENGTH: typeof import("./moderator-auth").MIN_MODERATOR_SESSION_SECRET_LENGTH;
 let approveShowSubmission: typeof import("./submissions").approveShowSubmission;
 let rejectShowSubmission: typeof import("./submissions").rejectShowSubmission;
+let getModeratorVisibleSubmissions: typeof import("./submissions").getModeratorVisibleSubmissions;
+let getModeratorVisibleSubmissionById: typeof import("./submissions").getModeratorVisibleSubmissionById;
 const restorers: Array<() => void> = [];
 
 function stubMethod<
@@ -37,7 +41,15 @@ before(async () => {
   ({ createModeratorSessionToken, verifyModeratorSessionToken } = await import(
     "./moderator-session"
   ));
-  ({ approveShowSubmission, rejectShowSubmission } = await import("./submissions"));
+  ({ validateModeratorSessionSecret, MIN_MODERATOR_SESSION_SECRET_LENGTH } = await import(
+    "./moderator-auth"
+  ));
+  ({
+    approveShowSubmission,
+    rejectShowSubmission,
+    getModeratorVisibleSubmissions,
+    getModeratorVisibleSubmissionById,
+  } = await import("./submissions"));
 });
 
 afterEach(() => {
@@ -87,6 +99,90 @@ test("verifyModeratorSessionToken rejects expired tokens", async () => {
   const payload = await verifyModeratorSessionToken(token, "super-secret");
 
   assert.equal(payload, null);
+});
+
+test("validateModeratorSessionSecret rejects missing secrets", () => {
+  assert.deepEqual(validateModeratorSessionSecret(""), {
+    secret: null,
+    error: "missing",
+  });
+});
+
+test("validateModeratorSessionSecret rejects short secrets", () => {
+  assert.deepEqual(validateModeratorSessionSecret("x".repeat(31)), {
+    secret: null,
+    error: "too_short",
+  });
+});
+
+test("validateModeratorSessionSecret accepts trimmed strong secrets", () => {
+  const strongSecret = `  ${"x".repeat(MIN_MODERATOR_SESSION_SECRET_LENGTH)}  `;
+
+  assert.deepEqual(validateModeratorSessionSecret(strongSecret), {
+    secret: "x".repeat(MIN_MODERATOR_SESSION_SECRET_LENGTH),
+    error: null,
+  });
+});
+
+test("getModeratorVisibleSubmissions returns only pending and self-reviewed submissions", async () => {
+  const findManyMock = stubMethod(db.showSubmission, "findMany", async () => [
+    { id: "pending-1", status: "PENDING", reviewerId: null },
+    { id: "reviewed-by-self", status: "APPROVED", reviewerId: "moderator-1" },
+  ]);
+
+  const result = await getModeratorVisibleSubmissions("moderator-1");
+
+  assert.equal(findManyMock.mock.calls.length, 1);
+  assert.deepEqual(findManyMock.mock.calls[0]?.arguments[0], {
+    include: {
+      reviewer: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+        },
+      },
+    },
+    where: {
+      OR: [{ status: "PENDING" }, { reviewerId: "moderator-1" }],
+    },
+    orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+  });
+  assert.deepEqual(result, [
+    { id: "pending-1", status: "PENDING", reviewerId: null },
+    { id: "reviewed-by-self", status: "APPROVED", reviewerId: "moderator-1" },
+  ]);
+});
+
+test("getModeratorVisibleSubmissionById allows pending submissions for any moderator", async () => {
+  const getSubmissionMock = stubMethod(db.showSubmission, "findUnique", async () => ({
+    id: "submission-1",
+    status: "PENDING",
+    reviewerId: null,
+  }));
+
+  const result = await getModeratorVisibleSubmissionById("submission-1", "moderator-1");
+
+  assert.equal(getSubmissionMock.mock.calls.length, 1);
+  assert.deepEqual(result, {
+    id: "submission-1",
+    status: "PENDING",
+    reviewerId: null,
+  });
+});
+
+test("getModeratorVisibleSubmissionById hides other moderators reviewed submissions", async () => {
+  const getSubmissionMock = stubMethod(db.showSubmission, "findUnique", async () => ({
+    id: "submission-1",
+    status: "APPROVED",
+    reviewerId: "moderator-2",
+  }));
+
+  const result = await getModeratorVisibleSubmissionById("submission-1", "moderator-1");
+
+  assert.equal(getSubmissionMock.mock.calls.length, 1);
+  assert.equal(result, null);
 });
 
 test("approveShowSubmission rejects non-admin, non-moderator reviewer roles", async () => {

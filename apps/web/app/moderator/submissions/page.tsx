@@ -1,15 +1,18 @@
 import Link from "next/link";
 import { requireModeratorSession } from "@/lib/moderator-auth";
-import { getAllSubmissions } from "@/lib/submissions";
+import { getModeratorVisibleSubmissions } from "@/lib/submissions";
 
 export const dynamic = "force-dynamic";
 
 export default async function ModeratorSubmissionsPage() {
-  await requireModeratorSession("/moderator/submissions");
+  const session = await requireModeratorSession("/moderator/submissions");
 
-  const submissions = await getAllSubmissions();
+  const submissions = await getModeratorVisibleSubmissions(session.user.id);
   const pending = submissions.filter((submission) => submission.status === "PENDING");
-  const reviewed = submissions.filter((submission) => submission.status !== "PENDING");
+  const reviewed = submissions.filter(
+    (submission) =>
+      submission.status !== "PENDING" && submission.reviewerId === session.user.id
+  );
 
   return (
     <div className="p-6 lg:p-10">
@@ -120,4 +123,3 @@ function SubmissionTable({
     </div>
   );
 }
-

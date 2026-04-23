@@ -9,8 +9,36 @@ import {
 } from "@/lib/moderator-session";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
+export const MIN_MODERATOR_SESSION_SECRET_LENGTH = 32;
+
+export function validateModeratorSessionSecret(secret: string | null | undefined) {
+  const normalized = secret?.trim() || null;
+  if (!normalized) {
+    return {
+      secret: null,
+      error: "missing" as const,
+    };
+  }
+
+  if (normalized.length < MIN_MODERATOR_SESSION_SECRET_LENGTH) {
+    return {
+      secret: null,
+      error: "too_short" as const,
+    };
+  }
+
+  return {
+    secret: normalized,
+    error: null,
+  };
+}
+
 export async function getModeratorSessionSecret() {
-  return process.env.MODERATOR_SESSION_SECRET?.trim() || null;
+  return validateModeratorSessionSecret(process.env.MODERATOR_SESSION_SECRET).secret;
+}
+
+export async function getModeratorSessionSecretStatus() {
+  return validateModeratorSessionSecret(process.env.MODERATOR_SESSION_SECRET);
 }
 
 export async function getModeratorSession() {

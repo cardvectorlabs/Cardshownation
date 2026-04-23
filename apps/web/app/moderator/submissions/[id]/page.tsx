@@ -4,7 +4,7 @@ import { requireModeratorSession } from "@/lib/moderator-auth";
 import {
   approveShowSubmission,
   getOrganizerApprovalForPayload,
-  getSubmissionById,
+  getModeratorVisibleSubmissionById,
   rejectShowSubmission,
 } from "@/lib/submissions";
 
@@ -34,7 +34,7 @@ function buildModeratorNote(
 async function approveSubmission(submissionId: string, formData: FormData) {
   "use server";
   const session = await requireModeratorSession(`/moderator/submissions/${submissionId}`);
-  const submission = await getSubmissionById(submissionId);
+  const submission = await getModeratorVisibleSubmissionById(submissionId, session.user.id);
   if (!submission) return;
 
   const payload = submission.payloadJson as Record<string, unknown>;
@@ -72,8 +72,8 @@ async function rejectSubmission(submissionId: string, formData: FormData) {
 
 export default async function ModeratorSubmissionDetailPage({ params }: Props) {
   const { id } = await params;
-  await requireModeratorSession(`/moderator/submissions/${id}`);
-  const submission = await getSubmissionById(id);
+  const session = await requireModeratorSession(`/moderator/submissions/${id}`);
+  const submission = await getModeratorVisibleSubmissionById(id, session.user.id);
   if (!submission) notFound();
 
   const payload = submission.payloadJson as Record<string, unknown>;
