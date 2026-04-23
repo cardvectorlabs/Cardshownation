@@ -1,7 +1,11 @@
 import Link from "next/link";
-import { ClipboardCheck, LayoutDashboard, LogIn } from "lucide-react";
+import { ClipboardCheck, LayoutDashboard, LogOut } from "lucide-react";
+import { getModeratorSession } from "@/lib/moderator-auth";
+import { logoutModerator } from "@/app/moderator/actions";
 
-export default function ModeratorLayout({ children }: { children: React.ReactNode }) {
+export default async function ModeratorLayout({ children }: { children: React.ReactNode }) {
+  const session = await getModeratorSession();
+
   return (
     <div className="flex min-h-screen bg-slate-50">
       <aside className="hidden w-56 shrink-0 border-r border-slate-200 bg-white md:flex md:flex-col">
@@ -15,7 +19,6 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
           {[
             { href: "/moderator", label: "Dashboard", icon: LayoutDashboard },
             { href: "/moderator/submissions", label: "Submissions", icon: ClipboardCheck },
-            { href: "/moderator/login", label: "Login", icon: LogIn },
           ].map(({ href, label, icon: Icon }) => (
             <Link
               key={href}
@@ -26,6 +29,26 @@ export default function ModeratorLayout({ children }: { children: React.ReactNod
               {label}
             </Link>
           ))}
+
+          {session ? (
+            <form action={logoutModerator}>
+              <button
+                type="submit"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+              >
+                <LogOut className="h-4 w-4" />
+                Log out
+              </button>
+            </form>
+          ) : (
+            <Link
+              href="/moderator/login"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
+            >
+              <LogOut className="h-4 w-4 rotate-180" />
+              Log in
+            </Link>
+          )}
         </nav>
       </aside>
 

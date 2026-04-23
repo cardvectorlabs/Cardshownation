@@ -409,6 +409,10 @@ export async function rejectShowSubmission(
     throw new Error("Only admin or moderator reviewers can reject submissions.");
   }
 
+  const existing = await db.showSubmission.findUnique({ where: { id: submissionId } });
+  if (!existing) return null;
+  if (existing.status !== "PENDING") return existing;
+
   const submission = await db.showSubmission.update({
     where: { id: submissionId },
     data: {

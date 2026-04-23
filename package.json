@@ -9,6 +9,7 @@
     "dev": "turbo run dev",
     "build": "turbo run build",
     "lint": "turbo run lint",
+    "test:web": "tsx --tsconfig apps/web/tsconfig.json --test apps/web/lib/moderation.test.ts",
     "secrets:scan": "powershell -ExecutionPolicy Bypass -File ./scripts/scan-secrets.ps1",
     "db:generate": "turbo run db:generate",
     "db:push": "turbo run db:push",
