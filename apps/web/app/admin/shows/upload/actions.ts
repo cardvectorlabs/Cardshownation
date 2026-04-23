@@ -17,6 +17,8 @@ const initialState: UploadState = {
   errors: [],
   message: null,
 };
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024;
+const MAX_IMPORT_ROWS = 1000;
 
 type CsvRow = Omit<ParsedShowRow, "rowNumber">;
 
@@ -31,6 +33,13 @@ export async function uploadShowsCsvAction(
     return {
       ...initialState,
       message: "Choose a CSV file before uploading.",
+    };
+  }
+
+  if (file.size > MAX_UPLOAD_BYTES) {
+    return {
+      ...initialState,
+      message: "CSV file is too large. Keep uploads under 2 MB.",
     };
   }
 
@@ -55,6 +64,13 @@ export async function uploadShowsCsvAction(
     }))
     .filter((row) => !String(row.title ?? "").trim().toUpperCase().startsWith("EXAMPLE"));
 
+  if (rows.length > MAX_IMPORT_ROWS) {
+    return {
+      ...initialState,
+      message: "CSV file has too many rows. Split imports into batches of 1,000 rows or fewer.",
+    };
+  }
+
   if (rows.length === 0) {
     return {
       ...initialState,
@@ -78,4 +94,3 @@ export async function uploadShowsCsvAction(
     };
   }
 }
-

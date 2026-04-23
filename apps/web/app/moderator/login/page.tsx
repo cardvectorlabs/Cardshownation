@@ -1,8 +1,19 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { authenticateModerator } from "@/lib/moderators";
-import { getModeratorSession, startModeratorSession } from "@/lib/moderator-auth";
+import {
+  getModeratorSession,
+  getModeratorSessionSecret,
+  startModeratorSession,
+} from "@/lib/moderator-auth";
+import { getRequestIp } from "@/lib/request-ip";
+import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const LOGIN_BLOCK_MS = 30 * 60 * 1000;
+const MAX_LOGIN_ATTEMPTS = 5;
 
 function sanitizeModeratorRedirectTarget(value: unknown) {
   const sanitized = sanitizeLocalRedirectTarget(value, "/moderator");
@@ -18,18 +29,40 @@ function readString(formData: FormData, key: string, maxLength: number) {
   return value.trim().slice(0, maxLength);
 }
 
+async function delay(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function handleLogin(formData: FormData) {
   "use server";
 
   const email = readString(formData, "email", 320).toLowerCase();
   const password = readString(formData, "password", 200);
   const redirectTo = sanitizeModeratorRedirectTarget(formData.get("from"));
+  const sessionSecret = await getModeratorSessionSecret();
+  const requestHeaders = await headers();
+  const ip = getRequestIp(requestHeaders) ?? "unknown";
+  const rateLimit = consumeRateLimit("moderator-login", ip, {
+    blockMs: LOGIN_BLOCK_MS,
+    maxAttempts: MAX_LOGIN_ATTEMPTS,
+    windowMs: LOGIN_WINDOW_MS,
+  });
+
+  if (!rateLimit.allowed) {
+    redirect(`/moderator/login?error=rate&from=${encodeURIComponent(redirectTo)}`);
+  }
+
+  if (!sessionSecret) {
+    redirect(`/moderator/login?error=disabled&from=${encodeURIComponent(redirectTo)}`);
+  }
 
   const user = await authenticateModerator(email, password);
   if (!user) {
+    await delay(750);
     redirect(`/moderator/login?error=invalid&from=${encodeURIComponent(redirectTo)}`);
   }
 
+  resetRateLimit("moderator-login", ip);
   await startModeratorSession(user.id);
   redirect(redirectTo);
 }
@@ -39,15 +72,24 @@ export default async function ModeratorLoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
-  const session = await getModeratorSession();
+  const [session, secret, sp] = await Promise.all([
+    getModeratorSession(),
+    getModeratorSessionSecret(),
+    searchParams,
+  ]);
   if (session) {
     redirect("/moderator");
   }
 
-  const sp = await searchParams;
   const from = sanitizeModeratorRedirectTarget(sp.from);
   const errorMessage =
-    sp.error === "invalid" ? "Email or password did not match this moderator account." : null;
+    sp.error === "disabled"
+      ? "Moderator portal is disabled until MODERATOR_SESSION_SECRET is set on the server."
+      : sp.error === "rate"
+      ? "Too many attempts. Wait 30 minutes and try again."
+      : sp.error === "invalid"
+        ? "Email or password did not match this moderator account."
+        : null;
 
   return (
     <div className="container-narrow py-6 sm:py-10">
@@ -61,6 +103,12 @@ export default async function ModeratorLoginPage({
         <p className="mt-4 text-base leading-7 text-slate-600">
           Sign in to review submitted shows and flag promoters for admin trust review.
         </p>
+
+        {!secret && (
+          <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            Set `MODERATOR_SESSION_SECRET` to enable moderator sign-in.
+          </p>
+        )}
 
         {errorMessage && (
           <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -80,6 +128,7 @@ export default async function ModeratorLoginPage({
               name="email"
               type="email"
               required
+              disabled={!secret}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
             />
           </div>
@@ -93,12 +142,14 @@ export default async function ModeratorLoginPage({
               name="password"
               type="password"
               required
+              disabled={!secret}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
             />
           </div>
 
           <button
             type="submit"
+            disabled={!secret}
             className="inline-flex w-full items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
           >
             Log in
@@ -115,4 +166,3 @@ export default async function ModeratorLoginPage({
     </div>
   );
 }
-

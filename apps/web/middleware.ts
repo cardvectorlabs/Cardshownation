@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME, verifyAdminSessionToken } from "@/lib/admin-session";
 
-const ADMIN_SESSION_SECRET =
-  process.env.ADMIN_SESSION_SECRET ||
-  process.env.MODERATOR_SESSION_SECRET ||
-  process.env.PROMOTER_SESSION_SECRET ||
-  process.env.ADMIN_PASSWORD;
+const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 const LOGIN_PATH = "/admin/login";
 const SETUP_PATH = "/admin/setup";
 

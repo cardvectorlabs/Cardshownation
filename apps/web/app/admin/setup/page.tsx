@@ -1,7 +1,14 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getAdminSession, startAdminSession } from "@/lib/admin-auth";
 import { hasAnyAdminUsers, registerInitialAdmin } from "@/lib/admins";
+import { getRequestIp } from "@/lib/request-ip";
+import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
+
+const SETUP_WINDOW_MS = 60 * 60 * 1000;
+const SETUP_BLOCK_MS = 2 * 60 * 60 * 1000;
+const MAX_SETUP_ATTEMPTS = 5;
 
 function readRequiredString(formData: FormData, key: string, maxLength: number) {
   const value = formData.get(key);
@@ -21,16 +28,30 @@ function isValidEmail(value: string) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 
+async function delay(ms: number) {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 async function handleSetup(formData: FormData) {
   "use server";
 
-  const bootstrapCode =
-    process.env.ADMIN_SETUP_CODE?.trim() || process.env.ADMIN_PASSWORD?.trim() || "";
+  const bootstrapCode = process.env.ADMIN_SETUP_CODE?.trim() || "";
   const name = readRequiredString(formData, "name", 120);
   const email = readRequiredString(formData, "email", 320).toLowerCase();
   const password = readRequiredString(formData, "password", 200);
   const confirmPassword = readRequiredString(formData, "confirmPassword", 200);
   const setupCode = readRequiredString(formData, "setupCode", 200);
+  const requestHeaders = await headers();
+  const ip = getRequestIp(requestHeaders) ?? "unknown";
+  const rateLimit = consumeRateLimit("admin-setup", ip, {
+    blockMs: SETUP_BLOCK_MS,
+    maxAttempts: MAX_SETUP_ATTEMPTS,
+    windowMs: SETUP_WINDOW_MS,
+  });
+
+  if (!rateLimit.allowed) {
+    redirect("/admin/setup?error=rate");
+  }
 
   if (!bootstrapCode) {
     redirect("/admin/setup?error=bootstrap");
@@ -48,11 +69,13 @@ async function handleSetup(formData: FormData) {
     redirect("/admin/setup?error=confirm");
   }
   if (setupCode !== bootstrapCode) {
+    await delay(750);
     redirect("/admin/setup?error=setupcode");
   }
 
   try {
     const user = await registerInitialAdmin({ name, email, password });
+    resetRateLimit("admin-setup", ip);
     await startAdminSession(user.id);
     redirect("/admin");
   } catch {
@@ -80,11 +103,13 @@ export default async function AdminSetupPage({
   }
 
   const bootstrapCodeExists = Boolean(
-    process.env.ADMIN_SETUP_CODE?.trim() || process.env.ADMIN_PASSWORD?.trim()
+    process.env.ADMIN_SETUP_CODE?.trim()
   );
   const errorMessage =
     sp.error === "exists"
       ? "An admin account already exists."
+      : sp.error === "rate"
+        ? "Too many attempts. Wait a bit and try again."
       : sp.error === "bootstrap"
         ? "No setup code is configured on the server."
         : sp.error === "name"
@@ -107,7 +132,7 @@ export default async function AdminSetupPage({
 
         {!bootstrapCodeExists ? (
           <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set `ADMIN_SETUP_CODE` or keep `ADMIN_PASSWORD` temporarily so the first admin account can be created.
+            Set `ADMIN_SETUP_CODE` so the first admin account can be created.
           </div>
         ) : (
           <form action={handleSetup} className="mt-6 space-y-4">

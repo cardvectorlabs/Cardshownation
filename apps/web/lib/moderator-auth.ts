@@ -9,14 +9,8 @@ import {
 } from "@/lib/moderator-session";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
-async function getModeratorSessionSecret() {
-  const explicit = process.env.MODERATOR_SESSION_SECRET?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  const fallback = process.env.PROMOTER_SESSION_SECRET?.trim() || process.env.ADMIN_PASSWORD?.trim();
-  return fallback || null;
+export async function getModeratorSessionSecret() {
+  return process.env.MODERATOR_SESSION_SECRET?.trim() || null;
 }
 
 export async function getModeratorSession() {
@@ -64,7 +58,7 @@ export async function startModeratorSession(userId: string) {
   const cookieStore = await cookies();
   cookieStore.set(MODERATOR_COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: MODERATOR_SESSION_MAX_AGE_SECONDS,
@@ -75,4 +69,3 @@ export async function endModeratorSession() {
   const cookieStore = await cookies();
   cookieStore.delete(MODERATOR_COOKIE_NAME);
 }
-

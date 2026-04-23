@@ -10,17 +10,7 @@ import {
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
 async function getAdminSessionSecret() {
-  const explicit = process.env.ADMIN_SESSION_SECRET?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  const fallback =
-    process.env.MODERATOR_SESSION_SECRET?.trim() ||
-    process.env.PROMOTER_SESSION_SECRET?.trim() ||
-    process.env.ADMIN_PASSWORD?.trim();
-
-  return fallback || null;
+  return process.env.ADMIN_SESSION_SECRET?.trim() || null;
 }
 
 export async function getAdminSession() {

@@ -10,13 +10,7 @@ import {
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
 export async function getPromoterSessionSecret() {
-  const explicit = process.env.PROMOTER_SESSION_SECRET?.trim();
-  if (explicit) {
-    return explicit;
-  }
-
-  const fallback = process.env.ADMIN_PASSWORD?.trim();
-  return fallback || null;
+  return process.env.PROMOTER_SESSION_SECRET?.trim() || null;
 }
 
 export async function getPromoterSession() {
@@ -77,7 +71,7 @@ export async function startPromoterSession(userId: string) {
   const cookieStore = await cookies();
   cookieStore.set(PROMOTER_COOKIE_NAME, token, {
     httpOnly: true,
-    sameSite: "lax",
+    sameSite: "strict",
     secure: process.env.NODE_ENV === "production",
     path: "/",
     maxAge: PROMOTER_SESSION_MAX_AGE_SECONDS,
