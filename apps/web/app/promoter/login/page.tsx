@@ -62,8 +62,7 @@ export default async function PromoterLoginPage({
           Log in
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600">
-          Access your saved promoter profile, trusted-city approvals, and mobile show posting
-          tools.
+          Access your saved promoter profile and mobile show posting tools.
         </p>
 
         {errorMessage && (

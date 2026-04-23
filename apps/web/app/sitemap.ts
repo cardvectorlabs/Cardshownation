@@ -17,57 +17,63 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
   if (isFixtureMode()) return staticPages;
 
-  const today = new Date();
+  try {
+    const today = new Date();
 
-  // All active shows
-  const shows = await db.show.findMany({
-    where: {
-      status: "APPROVED",
-      endDate: { gte: today },
-    },
-    select: { slug: true, updatedAt: true },
-  });
+    const shows = await db.show.findMany({
+      where: {
+        status: "APPROVED",
+        endDate: { gte: today },
+      },
+      select: { slug: true, updatedAt: true },
+    });
 
-  const showPages: MetadataRoute.Sitemap = shows.map((show) => ({
-    url: `${BASE_URL}/shows/${show.slug}`,
-    lastModified: show.updatedAt,
-    priority: 0.7,
-    changeFrequency: "weekly" as const,
-  }));
-
-  // State pages
-  const stateResults = await db.show.groupBy({
-    by: ["state"],
-    where: { status: "APPROVED", endDate: { gte: today } },
-    _count: { state: true },
-  });
-
-  const statePages: MetadataRoute.Sitemap = stateResults.flatMap(({ state }) => {
-    const record = getStateByCode(state);
-    if (!record) return [];
-    return [{
-      url: `${BASE_URL}/card-shows/${record.slug}`,
-      priority: 0.8,
-      changeFrequency: "daily" as const,
-    }];
-  });
-
-  // City pages
-  const cityResults = await db.show.groupBy({
-    by: ["city", "state"],
-    where: { status: "APPROVED", endDate: { gte: today } },
-    _count: { city: true },
-  });
-
-  const cityPages: MetadataRoute.Sitemap = cityResults.flatMap(({ city, state }) => {
-    const record = getStateByCode(state);
-    if (!record) return [];
-    return [{
-      url: `${BASE_URL}/card-shows/${record.slug}/${slugify(city)}`,
+    const showPages: MetadataRoute.Sitemap = shows.map((show) => ({
+      url: `${BASE_URL}/shows/${show.slug}`,
+      lastModified: show.updatedAt,
       priority: 0.7,
       changeFrequency: "weekly" as const,
-    }];
-  });
+    }));
 
-  return [...staticPages, ...statePages, ...cityPages, ...showPages];
+    const stateResults = await db.show.groupBy({
+      by: ["state"],
+      where: { status: "APPROVED", endDate: { gte: today } },
+      _count: { state: true },
+    });
+
+    const statePages: MetadataRoute.Sitemap = stateResults.flatMap(({ state }) => {
+      const record = getStateByCode(state);
+      if (!record) return [];
+      return [
+        {
+          url: `${BASE_URL}/card-shows/${record.slug}`,
+          priority: 0.8,
+          changeFrequency: "daily" as const,
+        },
+      ];
+    });
+
+    const cityResults = await db.show.groupBy({
+      by: ["city", "state"],
+      where: { status: "APPROVED", endDate: { gte: today } },
+      _count: { city: true },
+    });
+
+    const cityPages: MetadataRoute.Sitemap = cityResults.flatMap(({ city, state }) => {
+      const record = getStateByCode(state);
+      if (!record) return [];
+      return [
+        {
+          url: `${BASE_URL}/card-shows/${record.slug}/${slugify(city)}`,
+          priority: 0.7,
+          changeFrequency: "weekly" as const,
+        },
+      ];
+    });
+
+    return [...staticPages, ...statePages, ...cityPages, ...showPages];
+  } catch (error) {
+    console.error("[sitemap] falling back to static pages:", error);
+    return staticPages;
+  }
 }

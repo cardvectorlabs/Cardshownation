@@ -66,6 +66,74 @@ async function markVerified(showId: string) {
   redirect(`/admin/shows/${showId}`);
 }
 
+async function trustPromoterForCity(showId: string) {
+  "use server";
+  await requireAdminSession(`/admin/shows/${showId}`);
+
+  const show = await db.show.findUnique({
+    where: { id: showId },
+    select: {
+      city: true,
+      state: true,
+      organizerId: true,
+    },
+  });
+
+  if (!show?.organizerId) {
+    redirect(`/admin/shows/${showId}`);
+  }
+
+  await db.organizerApproval.upsert({
+    where: {
+      organizerId_city_state: {
+        organizerId: show.organizerId,
+        city: show.city,
+        state: show.state,
+      },
+    },
+    create: {
+      organizerId: show.organizerId,
+      city: show.city,
+      state: show.state,
+      autoApprove: true,
+      reviewEvery: 4,
+    },
+    update: {
+      autoApprove: true,
+    },
+  });
+
+  redirect(`/admin/shows/${showId}`);
+}
+
+async function untrustPromoterForCity(showId: string) {
+  "use server";
+  await requireAdminSession(`/admin/shows/${showId}`);
+
+  const show = await db.show.findUnique({
+    where: { id: showId },
+    select: {
+      city: true,
+      state: true,
+      organizerId: true,
+    },
+  });
+
+  if (!show?.organizerId) {
+    redirect(`/admin/shows/${showId}`);
+  }
+
+  await db.organizerApproval.deleteMany({
+    where: {
+      organizerId: show.organizerId,
+      city: show.city,
+      state: show.state,
+    },
+  });
+
+  redirect(`/admin/shows/${showId}`);
+}
+
 export default async function AdminShowDetailPage({ params }: Props) {
   const { id } = await params;
   await requireAdminSession(`/admin/shows/${id}`);
@@ -76,7 +144,21 @@ export default async function AdminShowDetailPage({ params }: Props) {
   const approveShowWithId = approveShow.bind(null, show.id);
   const rejectShowWithId = rejectShow.bind(null, show.id);
   const markVerifiedWithId = markVerified.bind(null, show.id);
+  const trustPromoterWithId = trustPromoterForCity.bind(null, show.id);
+  const untrustPromoterWithId = untrustPromoterForCity.bind(null, show.id);
   const isMutable = !isFixtureMode() || show.id.startsWith("local-show-");
+  const cityApproval =
+    !isFixtureMode() && show.organizerId
+      ? await db.organizerApproval.findUnique({
+          where: {
+            organizerId_city_state: {
+              organizerId: show.organizerId,
+              city: show.city,
+              state: show.state,
+            },
+          },
+        })
+      : null;
 
   return (
     <div className="max-w-4xl p-6 lg:p-10">
@@ -134,6 +216,27 @@ export default async function AdminShowDetailPage({ params }: Props) {
                 Mark Verified Today
               </button>
             </form>
+            {show.organizerId && (
+              cityApproval ? (
+                <form action={untrustPromoterWithId}>
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100"
+                  >
+                    Remove City Trust
+                  </button>
+                </form>
+              ) : (
+                <form action={trustPromoterWithId}>
+                  <button
+                    type="submit"
+                    className="rounded-lg border border-brand-200 bg-brand-50 px-5 py-2 text-sm font-medium text-brand-800 transition-colors hover:bg-brand-100"
+                  >
+                    Trust Promoter For This City
+                  </button>
+                </form>
+              )
+            )}
           </div>
         ) : (
           <p className="text-sm text-slate-500">
@@ -190,6 +293,14 @@ export default async function AdminShowDetailPage({ params }: Props) {
             {show.organizer.websiteUrl && (
               <Field label="Website" value={show.organizer.websiteUrl} />
             )}
+            <Field
+              label="City Trust"
+              value={
+                cityApproval
+                  ? `${show.city}, ${show.state} · review every ${cityApproval.reviewEvery}`
+                  : "Not trusted for this city"
+              }
+            />
           </Section>
         )}
 

@@ -130,11 +130,7 @@ async function handleCreateShow(formData: FormData) {
 
     redirect(
       `/promoter?created=1&status=${
-        result.status === "APPROVED"
-          ? "approved"
-          : result.territoryStatus === "spot-check"
-            ? "spot-check"
-            : "review"
+        result.status === "APPROVED" ? "approved" : "review"
       }`
     );
   } catch {
@@ -184,8 +180,8 @@ export default async function NewPromoterShowPage({
         </div>
 
         <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
-          Post from your saved organizer account. Trusted cities publish right away except for
-          periodic spot checks.
+          Post from your saved organizer account and keep your show details attached to one
+          promoter profile.
         </p>
 
         {defaults && (
@@ -228,8 +224,8 @@ export default async function NewPromoterShowPage({
 
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm leading-6 text-slate-500">
-            Trusted cities auto-publish, with a manual spot check every fourth approved show in
-            that market.
+            Submission handling for each market is managed by admin review and promoter trust
+            settings.
           </p>
           <button
             type="submit"

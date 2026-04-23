@@ -12,6 +12,7 @@ dist
 dist/
 build
 build/
+apps/web/public/uploads/
 *.tsbuildinfo
 
 # Environment
@@ -36,6 +37,7 @@ packages/db/prisma/import-data
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+apps/web/*.log
 
 # OS
 .DS_Store

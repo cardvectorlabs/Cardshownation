@@ -5,15 +5,27 @@ import {
   approveShowSubmission,
   getSubmissionById,
   rejectShowSubmission,
+  setOrganizerAutoApprovalForPayload,
 } from "@/lib/submissions";
 
 type Props = { params: Promise<{ id: string }> };
 
 export const dynamic = "force-dynamic";
 
-async function approveSubmission(submissionId: string) {
+async function approveSubmission(submissionId: string, formData: FormData) {
   "use server";
   await requireAdminSession(`/admin/submissions/${submissionId}`);
+  const grantAutoApproval = formData.get("grantAutoApproval") === "on";
+  const submission = await getSubmissionById(submissionId);
+  if (!submission) return;
+
+  if (grantAutoApproval) {
+    await setOrganizerAutoApprovalForPayload(
+      submission.payloadJson as Record<string, unknown>,
+      true
+    );
+  }
+
   const show = await approveShowSubmission(submissionId);
   if (!show) return;
   redirect(`/admin/shows/${show.id}`);
@@ -36,6 +48,10 @@ export default async function ReviewSubmissionPage({ params }: Props) {
 
   const payload = submission.payloadJson as Record<string, unknown>;
   const isPending = submission.status === "PENDING";
+  const hasOrganizerApprovalContext =
+    typeof payload.organizerId === "string" &&
+    typeof payload.city === "string" &&
+    typeof payload.state === "string";
   const approveWithId = approveSubmission.bind(null, submission.id);
   const rejectWithId = rejectSubmission.bind(null, submission.id);
   const submittedFields: [string, unknown][] = [
@@ -121,6 +137,19 @@ export default async function ReviewSubmissionPage({ params }: Props) {
       {isPending ? (
         <div className="space-y-4">
           <form action={approveWithId}>
+            {hasOrganizerApprovalContext && (
+              <label className="mb-4 flex items-start gap-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  name="grantAutoApproval"
+                  className="mt-0.5 rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                <span>
+                  Trust this promoter for future shows in {String(payload.city)},{" "}
+                  {String(payload.state)} and spot check every 4th show.
+                </span>
+              </label>
+            )}
             <button
               type="submit"
               className="w-full rounded-lg bg-green-600 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-green-700"

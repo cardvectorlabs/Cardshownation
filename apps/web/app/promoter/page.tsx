@@ -48,10 +48,8 @@ export default async function PromoterPortalPage({
   const notice =
     sp.created === "1"
       ? sp.status === "approved"
-        ? "Show published immediately for your trusted city."
-        : sp.status === "spot-check"
-          ? "Show submitted for a spot check before publishing."
-          : "Show submitted for review."
+        ? "Show published."
+        : "Show submitted for admin review."
       : null;
 
   return (
@@ -67,8 +65,8 @@ export default async function PromoterPortalPage({
                 {dashboard.organizer.name}
               </h1>
               <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-                Create shows faster, reuse your saved organizer details, and skip manual review
-                in cities where your account is trusted.
+                Create shows faster, reuse your saved organizer details, and manage repeat events
+                from one organizer account.
               </p>
             </div>
 
@@ -102,10 +100,7 @@ export default async function PromoterPortalPage({
               label="Trusted cities"
               value={String(dashboard.approvals.length)}
             />
-            <StatCard
-              label="Default cadence"
-              value="Review every 4th"
-            />
+            <StatCard label="Recent status" value="Admin managed" />
           </div>
 
           <div className="mt-8">
@@ -179,8 +174,8 @@ export default async function PromoterPortalPage({
             </p>
             {dashboard.approvals.length === 0 ? (
               <p className="mt-4 text-sm leading-6 text-slate-600">
-                Your first submissions will go through review. Once approved, admin can trust you
-                for repeat shows in that city and state.
+                Admin can approve repeat markets for your account after reviewing your submitted
+                shows.
               </p>
             ) : (
               <div className="mt-4 space-y-3">
@@ -193,7 +188,7 @@ export default async function PromoterPortalPage({
                       {approval.city}, {approval.state}
                     </p>
                     <p className="mt-1 text-xs text-slate-500">
-                      {approval.approvedShowCount} approved shows · review every {approval.reviewEvery}
+                      {approval.approvedShowCount} approved shows in this market
                     </p>
                   </div>
                 ))}
@@ -243,8 +238,8 @@ function PromoterLandingPage() {
           Create repeat shows without retyping the same promoter details every time
         </h1>
         <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600">
-          Save your organizer profile once, post shows from your phone, and earn city-based trust
-          so repeat events can publish faster with only periodic spot checks.
+          Save your organizer profile once, post shows from your phone, and keep repeat events
+          tied to the same organizer account.
         </p>
 
         <div className="mt-8 flex flex-col gap-3 sm:flex-row">
@@ -271,7 +266,7 @@ function PromoterLandingPage() {
           },
           {
             title: "City-based trust",
-            body: "Approved promoters can skip normal review in the cities they already run, with a spot check every fourth approved show.",
+            body: "Admin can approve specific city and state markets for repeat submissions after a promoter has built trust there.",
           },
           {
             title: "Flyer rules built in",
