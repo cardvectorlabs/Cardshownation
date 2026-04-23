@@ -1,18 +1,18 @@
 import Link from "next/link";
-import { LayoutDashboard, ListChecks, Send, Upload, RefreshCw, Users } from "lucide-react";
+import { LayoutDashboard, ListChecks, LogOut, RefreshCw, Send, Upload, Users } from "lucide-react";
+import { logoutAdmin } from "@/app/admin/actions";
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
-      {/* Sidebar */}
-      <aside className="hidden md:flex flex-col w-56 border-r border-slate-200 bg-white shrink-0">
-        <div className="px-4 py-5 border-b border-slate-100">
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-slate-200 bg-white md:flex">
+        <div className="border-b border-slate-100 px-4 py-5">
           <Link href="/admin" className="text-sm font-bold text-slate-900">
             CSN Admin
           </Link>
-          <p className="text-xs text-slate-400 mt-0.5">Card Show Nation</p>
+          <p className="mt-0.5 text-xs text-slate-400">Card Show Nation</p>
         </div>
-        <nav className="flex-1 px-3 py-4 space-y-0.5">
+        <nav className="flex-1 space-y-0.5 px-3 py-4">
           {[
             { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
             { href: "/admin/submissions", label: "Submissions", icon: Send },
@@ -24,25 +24,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Link
               key={href}
               href={href}
-              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900"
             >
               <Icon className="h-4 w-4" />
               {label}
             </Link>
           ))}
         </nav>
-        <div className="px-3 py-4 border-t border-slate-100">
+        <div className="border-t border-slate-100 px-3 py-4">
           <Link
             href="/"
-            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-400 hover:text-slate-600 transition-colors"
+            className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:text-slate-600"
           >
-            ← View site
+            Back to site
           </Link>
+          <form action={logoutAdmin} className="mt-2">
+            <button
+              type="submit"
+              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+            >
+              <LogOut className="h-4 w-4" />
+              Log out
+            </button>
+          </form>
         </div>
       </aside>
 
-      {/* Content */}
-      <main className="flex-1 bg-slate-50 min-w-0">{children}</main>
+      <main className="min-w-0 flex-1 bg-slate-50">{children}</main>
     </div>
   );
 }

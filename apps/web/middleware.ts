@@ -1,22 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME, verifyAdminSessionToken } from "@/lib/admin-session";
 
-const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+const ADMIN_SESSION_SECRET =
+  process.env.ADMIN_SESSION_SECRET ||
+  process.env.MODERATOR_SESSION_SECRET ||
+  process.env.PROMOTER_SESSION_SECRET ||
+  process.env.ADMIN_PASSWORD;
 const LOGIN_PATH = "/admin/login";
+const SETUP_PATH = "/admin/setup";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  if (!pathname.startsWith("/admin") || pathname === LOGIN_PATH) {
+  if (
+    !pathname.startsWith("/admin") ||
+    pathname === LOGIN_PATH ||
+    pathname === SETUP_PATH
+  ) {
     return NextResponse.next();
   }
 
-  if (!ADMIN_PASSWORD) {
-    return new NextResponse("Admin access disabled - set ADMIN_PASSWORD.", { status: 503 });
+  if (!ADMIN_SESSION_SECRET) {
+    return new NextResponse("Admin access disabled - set ADMIN_SESSION_SECRET.", { status: 503 });
   }
 
   const cookie = req.cookies.get(ADMIN_COOKIE_NAME);
-  if (await verifyAdminSessionToken(cookie?.value, ADMIN_PASSWORD)) {
+  if (await verifyAdminSessionToken(cookie?.value, ADMIN_SESSION_SECRET)) {
     return NextResponse.next();
   }
 

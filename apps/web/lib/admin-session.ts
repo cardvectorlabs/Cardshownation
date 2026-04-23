@@ -7,7 +7,7 @@ type AdminSessionPayload = {
   aud: string;
   exp: number;
   iat: number;
-  nonce: string;
+  uid: string;
   v: number;
 };
 
@@ -55,8 +55,8 @@ function decodePayload(payloadSegment: string) {
       parsed.v !== 1 ||
       typeof parsed.exp !== "number" ||
       typeof parsed.iat !== "number" ||
-      typeof parsed.nonce !== "string" ||
-      parsed.nonce.length === 0
+      typeof parsed.uid !== "string" ||
+      parsed.uid.length === 0
     ) {
       return null;
     }
@@ -70,11 +70,11 @@ function decodePayload(payloadSegment: string) {
 async function signPayload(payloadSegment: string, secret: string) {
   const key = await getSigningKey(secret);
   const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(payloadSegment));
-
   return toBase64Url(signature);
 }
 
 export async function createAdminSessionToken(
+  userId: string,
   secret: string,
   maxAgeSeconds = ADMIN_SESSION_MAX_AGE_SECONDS
 ) {
@@ -83,7 +83,7 @@ export async function createAdminSessionToken(
     aud: SESSION_AUDIENCE,
     exp: now + maxAgeSeconds,
     iat: now,
-    nonce: crypto.randomUUID(),
+    uid: userId,
     v: 1,
   };
   const payloadSegment = encodePayload(payload);
@@ -93,34 +93,35 @@ export async function createAdminSessionToken(
 
 export async function verifyAdminSessionToken(token: string | undefined, secret: string) {
   if (!token) {
-    return false;
+    return null;
   }
 
   try {
     const [payloadSegment, signatureSegment, extraSegment] = token.split(".");
     if (!payloadSegment || !signatureSegment || extraSegment) {
-      return false;
+      return null;
     }
 
     const payload = decodePayload(payloadSegment);
     if (!payload) {
-      return false;
+      return null;
     }
 
     const now = Math.floor(Date.now() / 1000);
     if (payload.exp <= now || payload.iat > now + 60) {
-      return false;
+      return null;
     }
 
     const key = await getSigningKey(secret);
-
-    return crypto.subtle.verify(
+    const valid = await crypto.subtle.verify(
       "HMAC",
       key,
       fromBase64Url(signatureSegment),
       encoder.encode(payloadSegment)
     );
+
+    return valid ? payload : null;
   } catch {
-    return false;
+    return null;
   }
 }

@@ -1,10 +1,8 @@
-import { cookies, headers } from "next/headers";
+import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import {
-  ADMIN_COOKIE_NAME,
-  ADMIN_SESSION_MAX_AGE_SECONDS,
-  createAdminSessionToken,
-} from "@/lib/admin-session";
+import { authenticateAdmin, hasAnyAdminUsers } from "@/lib/admins";
+import { getAdminSession, startAdminSession } from "@/lib/admin-auth";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { getRequestIp } from "@/lib/request-ip";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
@@ -12,21 +10,14 @@ import { sanitizeLocalRedirectTarget } from "@/lib/url";
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
 const LOGIN_BLOCK_MS = 30 * 60 * 1000;
 const MAX_LOGIN_ATTEMPTS = 5;
-const encoder = new TextEncoder();
 
-async function hashString(value: string) {
-  return new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value)));
-}
-
-async function constantTimeEqual(left: string, right: string) {
-  const [leftHash, rightHash] = await Promise.all([hashString(left), hashString(right)]);
-  let difference = 0;
-
-  for (let i = 0; i < leftHash.length; i += 1) {
-    difference |= leftHash[i] ^ rightHash[i];
+function readString(formData: FormData, key: string, maxLength: number) {
+  const value = formData.get(key);
+  if (typeof value !== "string") {
+    return "";
   }
 
-  return difference === 0;
+  return value.trim().slice(0, maxLength);
 }
 
 async function delay(ms: number) {
@@ -35,9 +26,10 @@ async function delay(ms: number) {
 
 async function handleLogin(formData: FormData) {
   "use server";
-  const password = typeof formData.get("password") === "string" ? String(formData.get("password")) : "";
+
+  const email = readString(formData, "email", 320).toLowerCase();
+  const password = readString(formData, "password", 200);
   const from = sanitizeLocalRedirectTarget(formData.get("from"));
-  const expected = process.env.ADMIN_PASSWORD;
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
   const rateLimit = consumeRateLimit("admin-login", ip, {
@@ -50,22 +42,14 @@ async function handleLogin(formData: FormData) {
     redirect(`/admin/login?error=rate&from=${encodeURIComponent(from)}`);
   }
 
-  if (!expected || !(await constantTimeEqual(password, expected))) {
+  const user = await authenticateAdmin(email, password);
+  if (!user) {
     await delay(750);
     redirect(`/admin/login?error=1&from=${encodeURIComponent(from)}`);
   }
 
   resetRateLimit("admin-login", ip);
-  const sessionToken = await createAdminSessionToken(expected);
-  const cookieStore = await cookies();
-  cookieStore.set(ADMIN_COOKIE_NAME, sessionToken, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
-    maxAge: ADMIN_SESSION_MAX_AGE_SECONDS,
-    path: "/",
-  });
-
+  await startAdminSession(user.id);
   redirect(from);
 }
 
@@ -74,13 +58,26 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
-  const sp = await searchParams;
+  const [session, adminExists, sp] = await Promise.all([
+    getAdminSession(),
+    hasAnyAdminUsers(),
+    searchParams,
+  ]);
+
+  if (session) {
+    redirect("/admin");
+  }
+
+  if (!adminExists) {
+    redirect("/admin/setup");
+  }
+
   const from = sanitizeLocalRedirectTarget(sp.from);
   const errorMessage =
     sp.error === "rate"
       ? "Too many attempts. Wait 30 minutes and try again."
       : sp.error === "1"
-        ? "Incorrect password."
+        ? "Email or password was incorrect."
         : null;
 
   return (
@@ -92,6 +89,19 @@ export default async function LoginPage({
         <form action={handleLogin} className="mt-6 space-y-4">
           <input type="hidden" name="from" value={from} />
           <div>
+            <label htmlFor="email" className="mb-1.5 block text-sm font-medium text-slate-700">
+              Email
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoFocus
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
+            />
+          </div>
+          <div>
             <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-700">
               Password
             </label>
@@ -100,13 +110,10 @@ export default async function LoginPage({
               name="password"
               type="password"
               required
-              autoFocus
-                className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
-              />
+              className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
+            />
           </div>
-          {errorMessage && (
-            <p className="text-sm text-red-600">{errorMessage}</p>
-          )}
+          {errorMessage && <p className="text-sm text-red-600">{errorMessage}</p>}
           <button
             type="submit"
             className="w-full rounded-2xl bg-brand-600 px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
@@ -114,7 +121,15 @@ export default async function LoginPage({
             Sign in
           </button>
         </form>
+
+        <p className="mt-6 text-sm text-slate-600">
+          Need the first admin account?{" "}
+          <Link href="/admin/setup" className="font-semibold text-brand-700 hover:text-brand-800">
+            Open setup
+          </Link>
+        </p>
       </div>
     </div>
   );
 }
+
