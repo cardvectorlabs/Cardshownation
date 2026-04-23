@@ -32,16 +32,23 @@ async function handleSetup(formData: FormData) {
   const confirmPassword = readRequiredString(formData, "confirmPassword", 200);
   const setupCode = readRequiredString(formData, "setupCode", 200);
 
-  if (
-    !bootstrapCode ||
-    !name ||
-    !email ||
-    !isValidEmail(email) ||
-    password.length < 8 ||
-    password !== confirmPassword ||
-    setupCode !== bootstrapCode
-  ) {
-    redirect("/admin/setup?error=validation");
+  if (!bootstrapCode) {
+    redirect("/admin/setup?error=bootstrap");
+  }
+  if (!name) {
+    redirect("/admin/setup?error=name");
+  }
+  if (!email || !isValidEmail(email)) {
+    redirect("/admin/setup?error=email");
+  }
+  if (password.length < 8) {
+    redirect("/admin/setup?error=password");
+  }
+  if (password !== confirmPassword) {
+    redirect("/admin/setup?error=confirm");
+  }
+  if (setupCode !== bootstrapCode) {
+    redirect("/admin/setup?error=setupcode");
   }
 
   try {
@@ -78,8 +85,18 @@ export default async function AdminSetupPage({
   const errorMessage =
     sp.error === "exists"
       ? "An admin account already exists."
-      : sp.error === "validation"
-        ? "Check your setup code, email, and password fields."
+      : sp.error === "bootstrap"
+        ? "No setup code is configured on the server."
+        : sp.error === "name"
+          ? "Enter a name."
+          : sp.error === "email"
+            ? "Enter a valid email address."
+            : sp.error === "password"
+              ? "Password must be at least 8 characters."
+              : sp.error === "confirm"
+                ? "Password and confirmation do not match."
+                : sp.error === "setupcode"
+                  ? "Setup code did not match the server value."
         : null;
 
   return (
