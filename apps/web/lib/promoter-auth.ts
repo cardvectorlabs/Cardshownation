@@ -9,8 +9,25 @@ import {
 } from "@/lib/promoter-session";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
+export const MIN_PROMOTER_SESSION_SECRET_LENGTH = 32;
+
+export function validatePromoterSessionSecret(secret: string | null | undefined) {
+  const normalized = secret?.trim() || null;
+  if (!normalized) {
+    return { secret: null, error: "missing" as const };
+  }
+  if (normalized.length < MIN_PROMOTER_SESSION_SECRET_LENGTH) {
+    return { secret: null, error: "too_short" as const };
+  }
+  return { secret: normalized, error: null };
+}
+
 export async function getPromoterSessionSecret() {
-  return process.env.PROMOTER_SESSION_SECRET?.trim() || null;
+  return validatePromoterSessionSecret(process.env.PROMOTER_SESSION_SECRET).secret;
+}
+
+export async function getPromoterSessionSecretStatus() {
+  return validatePromoterSessionSecret(process.env.PROMOTER_SESSION_SECRET);
 }
 
 export async function getPromoterSession() {

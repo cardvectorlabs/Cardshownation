@@ -5,6 +5,8 @@ import { authenticatePromoter } from "@/lib/promoters";
 import {
   getPromoterSession,
   getPromoterSessionSecret,
+  getPromoterSessionSecretStatus,
+  MIN_PROMOTER_SESSION_SECRET_LENGTH,
   startPromoterSession,
 } from "@/lib/promoter-auth";
 import { getRequestIp } from "@/lib/request-ip";
@@ -74,9 +76,10 @@ export default async function PromoterLoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string; next?: string }>;
 }) {
-  const [session, secret, sp] = await Promise.all([
+  const [session, secret, secretStatus, sp] = await Promise.all([
     getPromoterSession(),
     getPromoterSessionSecret(),
+    getPromoterSessionSecretStatus(),
     searchParams,
   ]);
   if (session) {
@@ -86,11 +89,19 @@ export default async function PromoterLoginPage({
   const next = sanitizePromoterRedirectTarget(sp.next ?? sp.from);
   const errorMessage =
     sp.error === "disabled"
-      ? "Promoter login is temporarily unavailable."
+      ? secret === null
+        ? "Promoter portal is disabled until PROMOTER_SESSION_SECRET is configured with a strong value."
+        : null
       : sp.error === "rate"
       ? "Too many attempts. Wait 30 minutes and try again."
       : sp.error === "invalid"
         ? "Email or password did not match this promoter account."
+        : null;
+  const disabledMessage =
+    secretStatus.error === "missing"
+      ? "Set PROMOTER_SESSION_SECRET to enable promoter sign-in."
+      : secretStatus.error === "too_short"
+        ? `PROMOTER_SESSION_SECRET must be at least ${MIN_PROMOTER_SESSION_SECRET_LENGTH} characters.`
         : null;
 
   return (
@@ -105,6 +116,12 @@ export default async function PromoterLoginPage({
         <p className="mt-4 text-base leading-7 text-slate-600">
           Access your saved promoter profile and mobile show posting tools.
         </p>
+
+        {!secret && disabledMessage && (
+          <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {disabledMessage}
+          </p>
+        )}
 
         {errorMessage && (
           <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
