@@ -1,6 +1,7 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
+import { formatDateLabel, listDateRange } from "@/lib/daily-schedule";
 
 type StateOption = {
   code: string;
@@ -30,6 +31,15 @@ export function SubmitShowFormSteps({
   const [isMultiDay, setIsMultiDay] = useState(false);
   const [isStepTwoOpen, setIsStepTwoOpen] = useState(false);
   const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
+  const [sameTimesEachDay, setSameTimesEachDay] = useState(true);
+  const dailyDates = useMemo(() => {
+    if (!isMultiDay || !startDate || !endDate) {
+      return [];
+    }
+
+    return listDateRange(startDate, endDate);
+  }, [endDate, isMultiDay, startDate]);
 
   function revealStepTwo() {
     const fields = Array.from(
@@ -95,7 +105,13 @@ export function SubmitShowFormSteps({
                   required
                   className={inputClass}
                   value={startDate}
-                  onChange={(event) => setStartDate(event.target.value)}
+                  onChange={(event) => {
+                    const nextStartDate = event.target.value;
+                    setStartDate(nextStartDate);
+                    if (endDate && nextStartDate && endDate < nextStartDate) {
+                      setEndDate(nextStartDate);
+                    }
+                  }}
                 />
               </div>
 
@@ -127,55 +143,122 @@ export function SubmitShowFormSteps({
                   required={isMultiDay}
                   min={startDate || undefined}
                   className={inputClass}
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
                 />
               </div>
             )}
           </div>
 
-          <div className="grid gap-5 sm:grid-cols-2">
-            <div>
-              <label
-                htmlFor="startTimeLabel"
-                className="mb-2 block text-sm font-medium text-slate-700"
-              >
-                Start time
+          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+            {isMultiDay && (
+              <label className="mb-4 flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700">
+                <input
+                  type="checkbox"
+                  name="sameTimesEachDay"
+                  checked={sameTimesEachDay}
+                  onChange={(event) => setSameTimesEachDay(event.target.checked)}
+                  className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                />
+                Same start and end time each day
               </label>
-              <select
-                id="startTimeLabel"
-                name="startTimeLabel"
-                defaultValue=""
-                className={inputClass}
-              >
-                <option value="">Select start time</option>
-                {timeOptions.map((timeOption) => (
-                  <option key={timeOption} value={timeOption}>
-                    {timeOption}
-                  </option>
-                ))}
-              </select>
-            </div>
+            )}
 
-            <div>
-              <label
-                htmlFor="endTimeLabel"
-                className="mb-2 block text-sm font-medium text-slate-700"
-              >
-                End time
-              </label>
-              <select
-                id="endTimeLabel"
-                name="endTimeLabel"
-                defaultValue=""
-                className={inputClass}
-              >
-                <option value="">Select end time</option>
-                {timeOptions.map((timeOption) => (
-                  <option key={timeOption} value={timeOption}>
-                    {timeOption}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {(!isMultiDay || sameTimesEachDay) && (
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="startTimeLabel"
+                    className="mb-2 block text-sm font-medium text-slate-700"
+                  >
+                    Start time
+                  </label>
+                  <select
+                    id="startTimeLabel"
+                    name="startTimeLabel"
+                    defaultValue=""
+                    className={inputClass}
+                  >
+                    <option value="">Select start time</option>
+                    {timeOptions.map((timeOption) => (
+                      <option key={timeOption} value={timeOption}>
+                        {timeOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="endTimeLabel"
+                    className="mb-2 block text-sm font-medium text-slate-700"
+                  >
+                    End time
+                  </label>
+                  <select
+                    id="endTimeLabel"
+                    name="endTimeLabel"
+                    defaultValue=""
+                    className={inputClass}
+                  >
+                    <option value="">Select end time</option>
+                    {timeOptions.map((timeOption) => (
+                      <option key={timeOption} value={timeOption}>
+                        {timeOption}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
+
+            {isMultiDay && !sameTimesEachDay && (
+              <div className="space-y-3">
+                <input type="hidden" name="sameTimesEachDay" value="off" />
+                {dailyDates.length > 0 ? (
+                  dailyDates.map((date) => (
+                    <div
+                      key={date}
+                      className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-3 sm:grid-cols-[1fr_1fr_1fr]"
+                    >
+                      <p className="self-center text-sm font-semibold text-slate-800">
+                        {formatDateLabel(date)}
+                      </p>
+                      <select
+                        name={`dailyStartTime_${date}`}
+                        required
+                        className={inputClass}
+                        defaultValue=""
+                      >
+                        <option value="">Start time</option>
+                        {timeOptions.map((timeOption) => (
+                          <option key={`${date}-start-${timeOption}`} value={timeOption}>
+                            {timeOption}
+                          </option>
+                        ))}
+                      </select>
+                      <select
+                        name={`dailyEndTime_${date}`}
+                        required
+                        className={inputClass}
+                        defaultValue=""
+                      >
+                        <option value="">End time</option>
+                        {timeOptions.map((timeOption) => (
+                          <option key={`${date}-end-${timeOption}`} value={timeOption}>
+                            {timeOption}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-sm text-red-700">
+                    Choose a valid start and end date to enter daily times.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">

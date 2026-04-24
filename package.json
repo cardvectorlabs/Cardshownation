@@ -28,7 +28,8 @@
     "@typescript-eslint/parser": "7.18.0",
     "@typescript-eslint/type-utils": "7.18.0",
     "@typescript-eslint/typescript-estree": "7.18.0",
-    "@typescript-eslint/utils": "7.18.0"
+    "@typescript-eslint/utils": "7.18.0",
+    "postcss": "8.5.10"
   },
   "packageManager": "npm@10.8.0",
   "engines": {

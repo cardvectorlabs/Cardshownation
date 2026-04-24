@@ -19,6 +19,12 @@ type PromoterShowInput = {
   showName: string;
   startDate: string;
   endDate: string;
+  sameTimesEachDay?: boolean;
+  dailySchedule?: Array<{
+    date: string;
+    startTimeLabel: string;
+    endTimeLabel: string;
+  }> | null;
   startTimeLabel?: string | null;
   endTimeLabel?: string | null;
   city: string;
@@ -246,6 +252,8 @@ export async function createPromoterShow(userId: string, input: PromoterShowInpu
     showName: input.showName,
     startDate: input.startDate,
     endDate: input.endDate,
+    sameTimesEachDay: input.sameTimesEachDay !== false,
+    dailySchedule: input.dailySchedule ?? null,
     startTimeLabel: input.startTimeLabel ?? null,
     endTimeLabel: input.endTimeLabel ?? null,
     city,

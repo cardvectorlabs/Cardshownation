@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { PromoterShowForm } from "@/components/promoter/promoter-show-form";
 import { requirePromoterSession } from "@/lib/promoter-auth";
 import { createPromoterShow, getPromoterShowDefaults } from "@/lib/promoters";
+import { isValidDateInput, listDateRange } from "@/lib/daily-schedule";
 import { SHOW_CATEGORIES } from "@/lib/shows";
 import { US_STATES } from "@/lib/states";
 import { normalizeExternalUrl } from "@/lib/url";
@@ -12,15 +13,6 @@ export const metadata: Metadata = {
   title: "Create Show",
   description: "Post a new show from the Card Show Nation promoter portal.",
 };
-
-function isValidDateInput(value: string) {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
-    return false;
-  }
-
-  const parsed = new Date(`${value}T00:00:00.000Z`);
-  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
-}
 
 function readRequiredString(formData: FormData, key: string, maxLength: number) {
   const value = formData.get(key);
@@ -34,6 +26,37 @@ function readRequiredString(formData: FormData, key: string, maxLength: number) 
   }
 
   return trimmed;
+}
+
+function readDailySchedule(
+  formData: FormData,
+  startDate: string,
+  endDate: string,
+  sameTimesEachDay: boolean
+) {
+  if (sameTimesEachDay || startDate === endDate) {
+    return null;
+  }
+
+  const dates = listDateRange(startDate, endDate);
+  if (dates.length === 0) {
+    return null;
+  }
+
+  const schedule: Array<{ date: string; startTimeLabel: string; endTimeLabel: string }> = [];
+
+  for (const date of dates) {
+    const startTimeLabel = readRequiredString(formData, `dailyStartTime_${date}`, 32);
+    const endTimeLabel = readRequiredString(formData, `dailyEndTime_${date}`, 32);
+
+    if (!startTimeLabel || !endTimeLabel) {
+      return null;
+    }
+
+    schedule.push({ date, startTimeLabel, endTimeLabel });
+  }
+
+  return schedule;
 }
 
 function readOptionalString(formData: FormData, key: string, maxLength: number) {
@@ -80,6 +103,7 @@ async function handleCreateShow(formData: FormData) {
     const showName = readRequiredString(formData, "showName", 160);
     const startDate = readRequiredString(formData, "startDate", 10);
     const endDate = readRequiredString(formData, "endDate", 10) || startDate;
+    const sameTimesEachDay = formData.get("sameTimesEachDay") !== "off";
     const city = readRequiredString(formData, "city", 80);
     const state = readRequiredString(formData, "state", 2).toUpperCase();
     const venueName = readRequiredString(formData, "venueName", 160);
@@ -88,6 +112,7 @@ async function handleCreateShow(formData: FormData) {
     const websiteUrl = normalizeExternalUrl(websiteUrlInput);
     const facebookUrl = normalizeExternalUrl(facebookUrlInput);
     const flyerFile = formData.get("flyerFile");
+    const dailySchedule = readDailySchedule(formData, startDate, endDate, sameTimesEachDay);
 
     if (
       !showName ||
@@ -97,6 +122,7 @@ async function handleCreateShow(formData: FormData) {
       !isValidDateInput(startDate) ||
       !isValidDateInput(endDate) ||
       endDate < startDate ||
+      (!sameTimesEachDay && startDate !== endDate && !dailySchedule) ||
       !US_STATES.some((option) => option.code === state) ||
       (websiteUrlInput && !websiteUrl) ||
       (facebookUrlInput && !facebookUrl)
@@ -108,6 +134,8 @@ async function handleCreateShow(formData: FormData) {
       showName,
       startDate,
       endDate,
+      sameTimesEachDay,
+      dailySchedule,
       startTimeLabel: readOptionalString(formData, "startTimeLabel", 32),
       endTimeLabel: readOptionalString(formData, "endTimeLabel", 32),
       city,

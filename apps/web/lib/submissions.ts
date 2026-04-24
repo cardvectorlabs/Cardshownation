@@ -36,6 +36,60 @@ function readStringArray(payload: Record<string, unknown>, key: string) {
   return value.filter((item): item is string => typeof item === "string");
 }
 
+function readDailySchedule(payload: Record<string, unknown>) {
+  const value = payload.dailySchedule;
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const row = item as Record<string, unknown>;
+      const date = typeof row.date === "string" ? row.date.trim() : "";
+      const startTimeLabel =
+        typeof row.startTimeLabel === "string" ? row.startTimeLabel.trim() : "";
+      const endTimeLabel = typeof row.endTimeLabel === "string" ? row.endTimeLabel.trim() : "";
+
+      if (!date || !startTimeLabel || !endTimeLabel) {
+        return null;
+      }
+
+      return { date, startTimeLabel, endTimeLabel };
+    })
+    .filter((row): row is { date: string; startTimeLabel: string; endTimeLabel: string } =>
+      Boolean(row)
+    );
+}
+
+function mergeDescriptionWithDailySchedule(payload: Record<string, unknown>) {
+  const baseDescription = readString(payload, "description");
+  const sameTimesEachDay = payload.sameTimesEachDay !== false;
+  const dailySchedule = readDailySchedule(payload);
+
+  if (sameTimesEachDay || dailySchedule.length === 0) {
+    return baseDescription;
+  }
+
+  const scheduleSummary = dailySchedule
+    .map((entry) => `${entry.date}: ${entry.startTimeLabel} - ${entry.endTimeLabel}`)
+    .join(" | ");
+  const scheduleLine = `Daily schedule: ${scheduleSummary}`;
+
+  if (!baseDescription) {
+    return scheduleLine;
+  }
+
+  if (baseDescription.includes(scheduleLine)) {
+    return baseDescription;
+  }
+
+  return `${baseDescription}\n\n${scheduleLine}`;
+}
+
 function getApprovalLookup(payload: Record<string, unknown>) {
   const organizerId = readString(payload, "organizerId");
   const city = readString(payload, "city");
@@ -185,7 +239,7 @@ export async function createApprovedShowFromPayload(payload: Record<string, unkn
       startTimeLabel: readString(payload, "startTimeLabel"),
       endTimeLabel: readString(payload, "endTimeLabel"),
       categories: readStringArray(payload, "categories"),
-      description: readString(payload, "description"),
+      description: mergeDescriptionWithDailySchedule(payload),
       tableCount: Number.parseInt(readString(payload, "tableCount") ?? "", 10) || null,
       vendorDetails: readString(payload, "vendorDetails"),
       flyerImageUrl,
