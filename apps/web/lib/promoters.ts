@@ -353,6 +353,7 @@ export async function getAdminPromoterById(organizerId: string) {
           name: true,
           email: true,
           createdAt: true,
+          emailVerifiedAt: true,
         },
       },
       approvals: {

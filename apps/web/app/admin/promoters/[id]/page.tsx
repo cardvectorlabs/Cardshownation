@@ -40,6 +40,29 @@ async function toggleVerified(organizerId: string, nextValue: boolean) {
   redirect(`/admin/promoters/${organizerId}`);
 }
 
+async function markEmailVerified(organizerId: string) {
+  "use server";
+  const session = await requireAdminSession(`/admin/promoters/${organizerId}`);
+  const organizer = await db.organizer.findUnique({
+    where: { id: organizerId },
+    select: { userId: true },
+  });
+  if (organizer?.userId) {
+    await db.user.update({
+      where: { id: organizer.userId },
+      data: { emailVerifiedAt: new Date() },
+    });
+    await writeAuditLog({
+      actorId: session.user.id,
+      actorRole: "ADMIN",
+      action: "promoter.email_verified",
+      targetType: "Organizer",
+      targetId: organizerId,
+    });
+  }
+  redirect(`/admin/promoters/${organizerId}`);
+}
+
 async function createTrustedCity(organizerId: string, formData: FormData) {
   "use server";
   const session = await requireAdminSession(`/admin/promoters/${organizerId}`);
@@ -142,6 +165,7 @@ export default async function AdminPromoterDetailPage({ params }: Props) {
   if (!promoter) notFound();
 
   const verifyAction = toggleVerified.bind(null, promoter.id, !promoter.verified);
+  const markEmailVerifiedAction = markEmailVerified.bind(null, promoter.id);
 
   return (
     <div className="max-w-5xl p-6 lg:p-10">
@@ -166,14 +190,27 @@ export default async function AdminPromoterDetailPage({ params }: Props) {
           </p>
         </div>
 
-        <form action={verifyAction}>
-          <button
-            type="submit"
-            className="rounded-lg border border-slate-200 px-5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
-          >
-            {promoter.verified ? "Remove verification" : "Mark verified"}
-          </button>
-        </form>
+        <div className="flex flex-wrap gap-2">
+          <form action={verifyAction}>
+            <button
+              type="submit"
+              className="rounded-lg border border-slate-200 px-5 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-50"
+            >
+              {promoter.verified ? "Remove verification" : "Mark verified"}
+            </button>
+          </form>
+
+          {promoter.user && !promoter.user.emailVerifiedAt && (
+            <form action={markEmailVerifiedAction}>
+              <button
+                type="submit"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-5 py-2 text-sm font-medium text-amber-800 transition-colors hover:bg-amber-100"
+              >
+                Mark email verified
+              </button>
+            </form>
+          )}
+        </div>
       </div>
 
       <div className="mb-8 grid gap-4 sm:grid-cols-3">

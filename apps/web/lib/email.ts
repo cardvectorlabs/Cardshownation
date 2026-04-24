@@ -10,6 +10,36 @@ function getResend() {
 
 const FROM_ADDRESS = "Card Show Nation <noreply@cardshownation.com>";
 
+export async function sendPromoterPasswordResetEmail(to: string, resetUrl: string) {
+  const resend = getResend();
+  await resend.emails.send({
+    from: FROM_ADDRESS,
+    to,
+    subject: "Reset your Card Show Nation password",
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px">
+        <h1 style="font-size:22px;font-weight:600;color:#020617;margin-bottom:8px">
+          Reset your password
+        </h1>
+        <p style="color:#475569;font-size:15px;line-height:1.6;margin-bottom:24px">
+          Click the button below to reset your promoter account password.
+          This link expires in 1 hour.
+        </p>
+        <a href="${resetUrl}"
+           style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;
+                  font-weight:600;padding:12px 24px;border-radius:9999px;
+                  text-decoration:none">
+          Reset password
+        </a>
+        <p style="color:#94a3b8;font-size:13px;margin-top:24px">
+          If you didn't request this, you can ignore this email.
+          Your password won't change.
+        </p>
+      </div>
+    `,
+  });
+}
+
 export async function sendPromoterVerificationEmail(
   to: string,
   verifyUrl: string
