@@ -487,6 +487,16 @@ export function PromoterShowForm({
                   <input
                     type="radio"
                     name="isFree"
+                    value="unknown"
+                    defaultChecked={!defaults}
+                    className="border-slate-300 text-brand-600 focus:ring-brand-500"
+                  />
+                  N/A
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name="isFree"
                     value="free"
                     defaultChecked={defaults?.isFree === true}
                     className="border-slate-300 text-brand-600 focus:ring-brand-500"
@@ -498,7 +508,7 @@ export function PromoterShowForm({
                     type="radio"
                     name="isFree"
                     value="paid"
-                    defaultChecked={defaults ? !defaults.isFree : true}
+                    defaultChecked={defaults ? !defaults.isFree : false}
                     className="border-slate-300 text-brand-600 focus:ring-brand-500"
                   />
                   Paid
