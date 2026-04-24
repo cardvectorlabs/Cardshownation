@@ -73,6 +73,34 @@ export async function registerPromoterAccount(input: RegisterPromoterInput) {
 
   const passwordHash = await hashPassword(input.password);
 
+  // If an organizer record already exists for this email (e.g. created from a
+  // show submission), link the new user to it rather than creating a duplicate.
+  const existingOrganizer = await db.organizer.findFirst({
+    where: { email, userId: null },
+  });
+
+  if (existingOrganizer) {
+    const user = await db.user.create({
+      data: {
+        name: input.contactName,
+        email,
+        passwordHash,
+        role: "ORGANIZER",
+      },
+    });
+    await db.organizer.update({
+      where: { id: existingOrganizer.id },
+      data: {
+        userId: user.id,
+        name: input.organizerName,
+        websiteUrl: normalizeExternalUrl(input.websiteUrl),
+        facebookUrl: normalizeExternalUrl(input.facebookUrl),
+        instagramUrl: normalizeExternalUrl(input.instagramUrl),
+      },
+    });
+    return user;
+  }
+
   const user = await db.user.create({
     data: {
       name: input.contactName,
