@@ -41,19 +41,33 @@ enum SourceType {
 // ─── Models ───────────────────────────────────────────────────────────────────
 
 model User {
-  id         String     @id @default(cuid())
-  name       String?
-  email      String     @unique
-  passwordHash String?
-  role       UserRole   @default(FAN)
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
-  savedShows SavedShow[]
-  reports    ShowReport[]
+  id                String     @id @default(cuid())
+  name              String?
+  email             String     @unique
+  passwordHash      String?
+  role              UserRole   @default(FAN)
+  emailVerifiedAt   DateTime?
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  savedShows        SavedShow[]
+  reports           ShowReport[]
   moderatedSubmissions ShowSubmission[] @relation("SubmissionReviewer")
-  subscriptions UserStateSubscription[]
-  auditLogs AuditLog[] @relation("AuditActor")
-  organizer  Organizer?
+  subscriptions     UserStateSubscription[]
+  auditLogs         AuditLog[] @relation("AuditActor")
+  organizer         Organizer?
+  verificationTokens EmailVerificationToken[]
+}
+
+model EmailVerificationToken {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([token])
 }
 
 model Organizer {

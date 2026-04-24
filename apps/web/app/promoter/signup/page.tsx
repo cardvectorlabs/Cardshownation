@@ -4,11 +4,12 @@ import { redirect } from "next/navigation";
 import {
   getPromoterSession,
   getPromoterSessionSecret,
-  startPromoterSession,
 } from "@/lib/promoter-auth";
 import { registerPromoterAccount } from "@/lib/promoters";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { createVerificationToken } from "@/lib/verification-token";
+import { sendPromoterVerificationEmail } from "@/lib/email";
 
 const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
 const SIGNUP_BLOCK_MS = 2 * 60 * 60 * 1000;
@@ -101,8 +102,13 @@ async function handleSignup(formData: FormData) {
       instagramUrl,
     });
     resetRateLimit("promoter-signup", ip);
-    await startPromoterSession(user.id);
-    redirect("/promoter");
+
+    const token = await createVerificationToken(user.id);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://cardshownation.com";
+    const verifyUrl = `${appUrl}/promoter/verify?token=${token}`;
+    await sendPromoterVerificationEmail(email, verifyUrl);
+
+    redirect("/promoter/signup?sent=1");
   } catch {
     await delay(750);
     redirect("/promoter/signup?error=exists");
@@ -112,7 +118,7 @@ async function handleSignup(formData: FormData) {
 export default async function PromoterSignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; sent?: string }>;
 }) {
   const [session, secret, sp] = await Promise.all([
     getPromoterSession(),
@@ -121,6 +127,32 @@ export default async function PromoterSignupPage({
   ]);
   if (session) {
     redirect("/promoter");
+  }
+
+  if (sp.sent === "1") {
+    return (
+      <div className="container-narrow py-6 sm:py-10">
+        <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
+            Check your inbox
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+            Verify your email
+          </h1>
+          <p className="mt-4 text-base leading-7 text-slate-600">
+            We sent a verification link to your email address. Click the link to
+            activate your promoter account. The link expires in 24 hours.
+          </p>
+          <p className="mt-4 text-sm text-slate-500">
+            Didn&apos;t get it? Check your spam folder or{" "}
+            <Link href="/promoter/signup" className="font-semibold text-brand-700 hover:text-brand-800">
+              try again
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const errorMessage =
