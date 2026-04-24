@@ -88,11 +88,7 @@ export default async function PromoterLoginPage({
 
   const next = sanitizePromoterRedirectTarget(sp.next ?? sp.from);
   const errorMessage =
-    sp.error === "disabled"
-      ? secret === null
-        ? "Promoter portal is disabled until PROMOTER_SESSION_SECRET is configured with a strong value."
-        : null
-      : sp.error === "rate"
+    sp.error === "rate"
       ? "Too many attempts. Wait 30 minutes and try again."
       : sp.error === "invalid"
         ? "Email or password did not match this promoter account."
