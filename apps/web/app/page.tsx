@@ -29,6 +29,7 @@ export default async function HomePage() {
       return { upcomingShows: 0, activeStates: 0, activeOrganizers: 0 };
     }),
   ]);
+  const accountHref = "/account/login";
   const promoterHref = session ? "/promoter" : "/promoter/login";
   const promoterLabel = session ? "My Dashboard" : "Promoter Login";
 
@@ -111,6 +112,12 @@ export default async function HomePage() {
             >
               Submit a show
               <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href={accountHref}
+              className="inline-flex items-center justify-center rounded-2xl border border-white/25 bg-white/10 px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-white/15"
+            >
+              Login
             </Link>
             <Link
               href={promoterHref}
@@ -201,6 +208,12 @@ export default async function HomePage() {
             >
               Submit a show
               <ArrowRight className="h-4 w-4" />
+            </Link>
+            <Link
+              href={accountHref}
+              className="inline-flex items-center justify-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10 shrink-0"
+            >
+              Login
             </Link>
             <Link
               href={promoterHref}

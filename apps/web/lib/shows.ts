@@ -12,6 +12,7 @@ import {
   getFixtureShowBySlug,
 } from "@/lib/fixture-store";
 import { slugify } from "@/lib/utils";
+import { normalizeExternalUrl } from "@/lib/url";
 
 export const SHOW_CATEGORIES = [
   "Sports Cards",
@@ -75,6 +76,35 @@ type BulkCreateShowsResult = {
   errors: { row: number; message: string }[];
 };
 
+type AdminShowUpdateInput = {
+  title: string;
+  startDate: string;
+  endDate: string;
+  startTimeLabel?: string | null;
+  endTimeLabel?: string | null;
+  city: string;
+  state: string;
+  isFree: boolean;
+  admissionPrice?: string | null;
+  admissionNotes?: string | null;
+  tableCount?: string | null;
+  estimatedAttendance?: string | null;
+  categories?: string | null;
+  description?: string | null;
+  websiteUrl?: string | null;
+  facebookUrl?: string | null;
+  ticketUrl?: string | null;
+  vendorDetails?: string | null;
+  parkingInfo?: string | null;
+  loadInInfo?: string | null;
+  venueNotes?: string | null;
+  flyerImageUrl?: string | null;
+  venueName?: string | null;
+  venueAddress1?: string | null;
+  venueAddress2?: string | null;
+  venuePostalCode?: string | null;
+};
+
 function normalizeCsvString(value?: string) {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
@@ -106,6 +136,15 @@ function parseCategories(value: string | null) {
     .map((item) => item.trim())
     .filter(Boolean)
     .map((item) => categoryAliases[item.toLowerCase()] ?? item);
+}
+
+function parseDateInput(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
 }
 
 const showCardSelect = {
@@ -1266,4 +1305,151 @@ export async function clearShowPromoterAssignment(
     targetType: "Show",
     targetId: showId,
   });
+}
+
+export async function updateAdminShowDetails(
+  showId: string,
+  input: AdminShowUpdateInput,
+  actor?: {
+    actorId?: string | null;
+    actorRole?: UserRole | null;
+  }
+) {
+  if (actor?.actorRole !== "ADMIN") {
+    throw new Error("Only admins can edit shows.");
+  }
+
+  if (isFixtureMode()) {
+    return { success: false as const, reason: "fixture-mode" as const };
+  }
+
+  const title = normalizeCsvString(input.title);
+  const city = normalizeCsvString(input.city);
+  const state = normalizeCsvString(input.state)?.toUpperCase() ?? null;
+  const startDate = parseDateInput(normalizeCsvString(input.startDate));
+  const endDate = parseDateInput(normalizeCsvString(input.endDate));
+  const tableCount = parseOptionalInteger(normalizeCsvString(input.tableCount ?? undefined));
+  const estimatedAttendance = parseOptionalInteger(
+    normalizeCsvString(input.estimatedAttendance ?? undefined)
+  );
+  const venueName = normalizeCsvString(input.venueName ?? undefined);
+  const venueAddress1 = normalizeCsvString(input.venueAddress1 ?? undefined);
+  const venueAddress2 = normalizeCsvString(input.venueAddress2 ?? undefined);
+  const venuePostalCode = normalizeCsvString(input.venuePostalCode ?? undefined);
+
+  if (!title || !city || !state || !startDate || !endDate) {
+    return { success: false as const, reason: "validation" as const };
+  }
+
+  if (!/^[A-Z]{2}$/.test(state) || endDate < startDate) {
+    return { success: false as const, reason: "validation" as const };
+  }
+
+  if (tableCount.error || estimatedAttendance.error) {
+    return { success: false as const, reason: "validation" as const };
+  }
+
+  const existingShow = await db.show.findUnique({
+    where: { id: showId },
+    select: {
+      id: true,
+      venueId: true,
+      title: true,
+      city: true,
+      state: true,
+      startDate: true,
+      endDate: true,
+    },
+  });
+
+  if (!existingShow) {
+    return { success: false as const, reason: "not-found" as const };
+  }
+
+  let venueId: string | null = null;
+
+  if (venueName) {
+    const venue = await db.venue.upsert({
+      where: {
+        name_city_state: {
+          name: venueName,
+          city,
+          state,
+        },
+      },
+      create: {
+        name: venueName,
+        address1: venueAddress1 ?? "Address unavailable",
+        address2: venueAddress2,
+        city,
+        state,
+        postalCode: venuePostalCode,
+        parkingInfo: normalizeCsvString(input.parkingInfo ?? undefined),
+        loadInInfo: normalizeCsvString(input.loadInInfo ?? undefined),
+      },
+      update: {
+        address1: venueAddress1 ?? undefined,
+        address2: venueAddress2 ?? undefined,
+        postalCode: venuePostalCode ?? undefined,
+        parkingInfo: normalizeCsvString(input.parkingInfo ?? undefined) ?? undefined,
+        loadInInfo: normalizeCsvString(input.loadInInfo ?? undefined) ?? undefined,
+      },
+    });
+
+    venueId = venue.id;
+  }
+
+  const show = await db.show.update({
+    where: { id: showId },
+    data: {
+      title,
+      city,
+      state,
+      startDate,
+      endDate,
+      startTimeLabel: normalizeCsvString(input.startTimeLabel ?? undefined),
+      endTimeLabel: normalizeCsvString(input.endTimeLabel ?? undefined),
+      isFree: input.isFree,
+      admissionPrice: normalizeCsvString(input.admissionPrice ?? undefined),
+      admissionNotes: normalizeCsvString(input.admissionNotes ?? undefined),
+      tableCount: tableCount.value,
+      estimatedAttendance: estimatedAttendance.value,
+      categories: parseCategories(normalizeCsvString(input.categories ?? undefined)),
+      description: normalizeCsvString(input.description ?? undefined),
+      websiteUrl: normalizeExternalUrl(input.websiteUrl),
+      facebookUrl: normalizeExternalUrl(input.facebookUrl),
+      ticketUrl: normalizeExternalUrl(input.ticketUrl),
+      vendorDetails: normalizeCsvString(input.vendorDetails ?? undefined),
+      parkingInfo: normalizeCsvString(input.parkingInfo ?? undefined),
+      loadInInfo: normalizeCsvString(input.loadInInfo ?? undefined),
+      venueNotes: normalizeCsvString(input.venueNotes ?? undefined),
+      flyerImageUrl: normalizeExternalUrl(input.flyerImageUrl),
+      expiresAt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
+      venueId,
+    },
+  });
+
+  await writeAuditLog({
+    actorId: actor?.actorId ?? null,
+    actorRole: actor?.actorRole ?? null,
+    action: "show.edited",
+    targetType: "Show",
+    targetId: showId,
+    details: {
+      previousTitle: existingShow.title,
+      nextTitle: show.title,
+      previousCity: existingShow.city,
+      nextCity: show.city,
+      previousState: existingShow.state,
+      nextState: show.state,
+      previousStartDate: existingShow.startDate.toISOString(),
+      nextStartDate: show.startDate.toISOString(),
+      previousEndDate: existingShow.endDate.toISOString(),
+      nextEndDate: show.endDate.toISOString(),
+      previousVenueId: existingShow.venueId,
+      nextVenueId: show.venueId,
+    },
+  });
+
+  return { success: true as const, reason: null };
 }

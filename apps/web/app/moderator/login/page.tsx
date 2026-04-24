@@ -138,7 +138,6 @@ export default async function ModeratorLoginPage({
               name="email"
               type="email"
               required
-              disabled={!secret}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
             />
           </div>
@@ -152,14 +151,12 @@ export default async function ModeratorLoginPage({
               name="password"
               type="password"
               required
-              disabled={!secret}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
             />
           </div>
 
           <button
             type="submit"
-            disabled={!secret}
             className="inline-flex w-full items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
           >
             Log in

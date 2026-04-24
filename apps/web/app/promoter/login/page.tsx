@@ -97,7 +97,7 @@ export default async function PromoterLoginPage({
     <div className="container-narrow py-6 sm:py-10">
       <div className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
-          Promoter portal
+          Login
         </p>
         <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
           Log in
@@ -125,7 +125,6 @@ export default async function PromoterLoginPage({
               type="email"
               required
               autoComplete="email"
-              disabled={!secret}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
             />
           </div>
@@ -140,14 +139,12 @@ export default async function PromoterLoginPage({
               type="password"
               required
               autoComplete="current-password"
-              disabled={!secret}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
             />
           </div>
 
           <button
             type="submit"
-            disabled={!secret}
             className="inline-flex w-full items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
           >
             Log in
