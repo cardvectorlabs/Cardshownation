@@ -190,6 +190,8 @@ export async function createFixtureSubmission(input: {
     payloadJson: input.payloadJson,
     status: "PENDING",
     notes: null,
+    reviewerId: null,
+    reviewerRole: null,
     reviewedShowId: null,
     createdAt: now,
     updatedAt: now,
@@ -314,6 +316,8 @@ export async function approveFixtureSubmission(submissionId: string) {
   submissions[submissionIndex] = {
     ...submission,
     status: "APPROVED",
+    reviewerId: submission.reviewerId ?? null,
+    reviewerRole: submission.reviewerRole ?? null,
     reviewedShowId: show.id,
     updatedAt: now,
   };
@@ -336,6 +340,8 @@ export async function rejectFixtureSubmission(
     ...submissions[submissionIndex],
     status: "REJECTED" as const,
     notes,
+    reviewerId: submissions[submissionIndex]?.reviewerId ?? null,
+    reviewerRole: submissions[submissionIndex]?.reviewerRole ?? null,
     updatedAt: new Date(),
   };
 

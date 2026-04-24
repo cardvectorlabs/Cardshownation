@@ -74,6 +74,8 @@ export type FixtureSubmission = {
   payloadJson: Record<string, unknown>;
   status: "PENDING" | "APPROVED" | "REJECTED";
   notes: string | null;
+  reviewerId: string | null;
+  reviewerRole: "MODERATOR" | "ADMIN" | "ORGANIZER" | "FAN" | null;
   reviewedShowId: string | null;
   createdAt: Date;
   updatedAt: Date;
