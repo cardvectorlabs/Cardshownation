@@ -23,7 +23,12 @@ function isValidEmail(value: string) {
 }
 
 function isValidDateInput(value: string) {
-  return /^\d{4}-\d{2}-\d{2}$/.test(value);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return false;
+  }
+
+  const parsed = new Date(`${value}T00:00:00.000Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 function readRequiredString(formData: FormData, key: string, maxLength: number) {
@@ -211,21 +216,15 @@ export default async function SubmitShowPage({
         </p>
         <ul className="mt-5 grid gap-2 text-sm text-slate-700 sm:grid-cols-3">
           <li className="flex items-center gap-2">
-            <span aria-hidden className="text-brand-600">
-              ✓
-            </span>
+            <span aria-hidden className="text-brand-600">&check;</span>
             Free listing
           </li>
           <li className="flex items-center gap-2">
-            <span aria-hidden className="text-brand-600">
-              ✓
-            </span>
+            <span aria-hidden className="text-brand-600">&check;</span>
             Live within 24 hours
           </li>
           <li className="flex items-center gap-2">
-            <span aria-hidden className="text-brand-600">
-              ✓
-            </span>
+            <span aria-hidden className="text-brand-600">&check;</span>
             No account needed
           </li>
         </ul>

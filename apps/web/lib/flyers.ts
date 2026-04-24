@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { isIP } from "net";
 import { put } from "@vercel/blob";
 import { normalizeExternalUrl } from "@/lib/url";
 import {
@@ -15,6 +16,67 @@ const blobReadWriteToken = process.env.BLOB_READ_WRITE_TOKEN?.trim();
 const isProduction = process.env.NODE_ENV === "production";
 const FLYER_BACKGROUND = { r: 248, g: 250, b: 252, alpha: 1 };
 const FLYER_REMOTE_MAX_SIZE_BYTES = 10 * 1024 * 1024;
+const DISALLOWED_FLYER_HOSTNAMES = new Set([
+  "localhost",
+  "metadata.google.internal",
+  "metadata",
+]);
+
+function isPrivateIpv4Address(hostname: string) {
+  const segments = hostname.split(".").map((segment) => Number.parseInt(segment, 10));
+  if (segments.length !== 4 || segments.some((segment) => Number.isNaN(segment))) {
+    return false;
+  }
+
+  const [a, b] = segments;
+
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true;
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true;
+  if (a === 198 && (b === 18 || b === 19)) return true;
+
+  return false;
+}
+
+function isPrivateIpv6Address(hostname: string) {
+  const normalized = hostname.toLowerCase();
+
+  if (normalized === "::1") return true;
+  if (normalized.startsWith("fc") || normalized.startsWith("fd")) return true;
+  if (normalized.startsWith("fe80:")) return true;
+  if (normalized.startsWith("::ffff:127.")) return true;
+
+  return false;
+}
+
+function isDisallowedFlyerSourceHost(hostname: string) {
+  const normalized = hostname.toLowerCase();
+
+  if (!normalized) {
+    return true;
+  }
+
+  if (
+    DISALLOWED_FLYER_HOSTNAMES.has(normalized) ||
+    normalized.endsWith(".local") ||
+    normalized.endsWith(".internal")
+  ) {
+    return true;
+  }
+
+  const ipVersion = isIP(normalized);
+  if (ipVersion === 4) {
+    return isPrivateIpv4Address(normalized);
+  }
+
+  if (ipVersion === 6) {
+    return isPrivateIpv6Address(normalized);
+  }
+
+  return false;
+}
 
 function getAppBaseUrl() {
   return (process.env.NEXT_PUBLIC_APP_URL ?? "https://cardshownation.com").replace(/\/$/, "");
@@ -159,16 +221,25 @@ export async function saveRemoteFlyerImage(showName: string, sourceUrl: string) 
   if (!normalizedSourceUrl) {
     throw new Error("Flyer URL must be a valid http or https image.");
   }
+  const parsedSourceUrl = new URL(normalizedSourceUrl);
+  if (isDisallowedFlyerSourceHost(parsedSourceUrl.hostname)) {
+    throw new Error("Flyer URL host is not allowed.");
+  }
 
   const response = await fetch(normalizedSourceUrl, {
     headers: {
       Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
     },
     cache: "no-store",
+    redirect: "error",
   });
 
   if (!response.ok) {
     throw new Error("Could not download the flyer image from that URL.");
+  }
+  const contentType = response.headers.get("content-type")?.toLowerCase() ?? "";
+  if (contentType && !contentType.startsWith("image/")) {
+    throw new Error("Flyer URL must point to an image.");
   }
 
   const sourceBytes = await readResponseBytes(response, FLYER_REMOTE_MAX_SIZE_BYTES);

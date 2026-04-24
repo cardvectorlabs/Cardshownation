@@ -10,6 +10,7 @@ import {
   isManagedFlyerUrl,
   normalizeFlyerImage,
   normalizeFlyerUrlForRender,
+  saveRemoteFlyerImage,
 } from "./flyers";
 
 test("normalizeFlyerImage converts source artwork into the required webp canvas", async () => {
@@ -67,4 +68,21 @@ test("isManagedFlyerUrl recognizes stored local and blob flyer assets", () => {
   assert.equal(isManagedFlyerUrl("https://example.com/flyers/example.webp"), false);
 
   process.env.NEXT_PUBLIC_APP_URL = originalBaseUrl;
+});
+
+test("saveRemoteFlyerImage rejects private or local hostnames", async () => {
+  await assert.rejects(
+    () => saveRemoteFlyerImage("Example Show", "http://localhost/flyer.png"),
+    /host is not allowed/i
+  );
+
+  await assert.rejects(
+    () => saveRemoteFlyerImage("Example Show", "http://127.0.0.1/flyer.png"),
+    /host is not allowed/i
+  );
+
+  await assert.rejects(
+    () => saveRemoteFlyerImage("Example Show", "http://192.168.1.10/flyer.png"),
+    /host is not allowed/i
+  );
 });

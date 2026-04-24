@@ -15,22 +15,22 @@ let getModeratorVisibleSubmissions: typeof import("./submissions").getModeratorV
 let getModeratorVisibleSubmissionById: typeof import("./submissions").getModeratorVisibleSubmissionById;
 const restorers: Array<() => void> = [];
 
-function stubMethod<
-  T extends Record<string, unknown>,
-  K extends keyof T & string,
-  F extends T[K] & ((...args: any[]) => any),
->(target: T, key: K, implementation: F) {
+function stubMethod(
+  target: any,
+  key: string,
+  implementation: (...args: any[]) => any
+) {
   const original = target[key];
-  const calls: Array<{ arguments: Parameters<F> }> = [];
+  const calls: Array<{ arguments: any[] }> = [];
 
-  const wrapped = ((...args: Parameters<F>) => {
+  const wrapped = (...args: any[]) => {
     calls.push({ arguments: args });
     return implementation(...args);
-  }) as F;
+  };
 
-  (target as T & Record<string, unknown>)[key] = wrapped;
+  target[key] = wrapped;
   restorers.push(() => {
-    (target as T & Record<string, unknown>)[key] = original;
+    target[key] = original;
   });
 
   return { mock: { calls } };
