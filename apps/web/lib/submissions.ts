@@ -2,6 +2,7 @@ import { db } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit-log";
 import { isFixtureMode } from "@/lib/data-mode";
 import { getCityCoords } from "@/lib/city-coords";
+import { resolveManagedFlyerImageUrl } from "@/lib/flyers";
 import {
   approveFixtureSubmission,
   createFixtureSubmission,
@@ -162,6 +163,11 @@ export async function createApprovedShowFromPayload(payload: Record<string, unkn
     suffix += 1;
   }
 
+  const flyerImageUrl = await resolveManagedFlyerImageUrl(
+    readString(payload, "showName") ?? "Untitled Show",
+    readString(payload, "flyerImageUrl")
+  );
+
   return db.show.create({
     data: {
       title: readString(payload, "showName") ?? "Untitled Show",
@@ -182,7 +188,7 @@ export async function createApprovedShowFromPayload(payload: Record<string, unkn
       description: readString(payload, "description"),
       tableCount: Number.parseInt(readString(payload, "tableCount") ?? "", 10) || null,
       vendorDetails: readString(payload, "vendorDetails"),
-      flyerImageUrl: readString(payload, "flyerImageUrl"),
+      flyerImageUrl,
       websiteUrl: normalizeExternalUrl(readString(payload, "websiteUrl")),
       facebookUrl: normalizeExternalUrl(readString(payload, "facebookUrl")),
       isFree: payload.isFree === true,

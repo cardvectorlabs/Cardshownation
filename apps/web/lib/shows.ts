@@ -5,6 +5,7 @@ import { writeAuditLog } from "@/lib/audit-log";
 import { db } from "@/lib/db";
 import { isFixtureMode } from "@/lib/data-mode";
 import { getCityCoords } from "@/lib/city-coords";
+import { resolveManagedFlyerImageUrl } from "@/lib/flyers";
 import type { FixtureShow } from "@/lib/fixture-data";
 import {
   getAllFixtureShows,
@@ -828,8 +829,27 @@ export async function bulkCreateShows(
     });
   }
 
+  const preparedRows: typeof validRows = [];
+
+  for (const row of validRows) {
+    try {
+      preparedRows.push({
+        ...row,
+        flyerImageUrl: await resolveManagedFlyerImageUrl(row.title, row.flyerImageUrl),
+      });
+    } catch (error) {
+      errors.push({
+        row: row.rowNumber,
+        message:
+          error instanceof Error
+            ? `flyerImageUrl: ${error.message}`
+            : "flyerImageUrl could not be normalized.",
+      });
+    }
+  }
+
   await db.$transaction(async (tx) => {
-    for (const row of validRows) {
+    for (const row of preparedRows) {
       let venueId: string | null = null;
 
       if (row.venueName) {
@@ -917,7 +937,7 @@ export async function bulkCreateShows(
   });
 
   return {
-    created: validRows.length,
+    created: preparedRows.length,
     skipped: errors.length,
     errors,
   };
@@ -1366,6 +1386,17 @@ export async function updateAdminShowDetails(
     return { success: false as const, reason: "not-found" as const };
   }
 
+  let flyerImageUrl: string | null = null;
+
+  try {
+    flyerImageUrl = await resolveManagedFlyerImageUrl(
+      title,
+      normalizeCsvString(input.flyerImageUrl ?? undefined)
+    );
+  } catch {
+    return { success: false as const, reason: "validation" as const };
+  }
+
   let venueId: string | null = null;
 
   if (venueName) {
@@ -1423,7 +1454,7 @@ export async function updateAdminShowDetails(
       parkingInfo: normalizeCsvString(input.parkingInfo ?? undefined),
       loadInInfo: normalizeCsvString(input.loadInInfo ?? undefined),
       venueNotes: normalizeCsvString(input.venueNotes ?? undefined),
-      flyerImageUrl: normalizeExternalUrl(input.flyerImageUrl),
+      flyerImageUrl,
       expiresAt: new Date(endDate.getTime() + 24 * 60 * 60 * 1000),
       venueId,
     },
@@ -1452,4 +1483,30 @@ export async function updateAdminShowDetails(
   });
 
   return { success: true as const, reason: null };
+}
+
+export async function ensureManagedShowFlyerImage(
+  showId: string,
+  title: string,
+  flyerImageUrl: string | null
+) {
+  if (isFixtureMode() || !flyerImageUrl) {
+    return flyerImageUrl;
+  }
+
+  try {
+    const managedFlyerImageUrl = await resolveManagedFlyerImageUrl(title, flyerImageUrl);
+    if (!managedFlyerImageUrl || managedFlyerImageUrl === flyerImageUrl) {
+      return flyerImageUrl;
+    }
+
+    await db.show.update({
+      where: { id: showId },
+      data: { flyerImageUrl: managedFlyerImageUrl },
+    });
+
+    return managedFlyerImageUrl;
+  } catch {
+    return flyerImageUrl;
+  }
 }

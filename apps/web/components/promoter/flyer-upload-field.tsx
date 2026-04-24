@@ -2,9 +2,11 @@
 
 import { type ChangeEvent, useRef, useState } from "react";
 import {
+  FLYER_ACCEPTED_EXTENSIONS,
   FLYER_MAX_SIZE_BYTES,
   FLYER_REQUIRED_HEIGHT,
   FLYER_REQUIRED_WIDTH,
+  isAcceptedFlyerFile,
 } from "@/lib/flyer-spec";
 
 type FlyerUploadFieldProps = {
@@ -24,8 +26,8 @@ export function FlyerUploadField({ inputClass }: FlyerUploadFieldProps) {
       return;
     }
 
-    if (file.type !== "image/webp" || !file.name.toLowerCase().endsWith(".webp")) {
-      setMessage("Flyer must be a .webp image.");
+    if (!isAcceptedFlyerFile(file)) {
+      setMessage("Flyer must be a JPG, PNG, or WebP image.");
       setIsValid(false);
       event.target.value = "";
       return;
@@ -52,24 +54,12 @@ export function FlyerUploadField({ inputClass }: FlyerUploadFieldProps) {
         }
       );
 
-      if (
-        dimensions.width !== FLYER_REQUIRED_WIDTH ||
-        dimensions.height !== FLYER_REQUIRED_HEIGHT
-      ) {
-        setMessage(
-          `Flyer must be ${FLYER_REQUIRED_WIDTH}x${FLYER_REQUIRED_HEIGHT}px.`
-        );
-        setIsValid(false);
-        event.target.value = "";
-        return;
-      }
-
       setMessage(
-        `Flyer ready: ${dimensions.width}x${dimensions.height}px WebP.`
+        `Flyer ready: ${dimensions.width}x${dimensions.height}px. We'll fit it to ${FLYER_REQUIRED_WIDTH}x${FLYER_REQUIRED_HEIGHT}px WebP automatically.`
       );
       setIsValid(true);
     } catch {
-      setMessage("Unable to read this file. Please try another WebP image.");
+      setMessage("Unable to read this file. Please try another image.");
       setIsValid(false);
       event.target.value = "";
     } finally {
@@ -83,8 +73,9 @@ export function FlyerUploadField({ inputClass }: FlyerUploadFieldProps) {
         <div>
           <p className="text-sm font-semibold text-slate-900">Flyer upload</p>
           <p className="mt-1 text-sm leading-6 text-slate-600">
-            Optional. Use WebP only at {FLYER_REQUIRED_WIDTH}x{FLYER_REQUIRED_HEIGHT}
-            px for the mobile card layout.
+            Optional. Upload a JPG, PNG, or WebP image and we will convert it to a{" "}
+            {FLYER_REQUIRED_WIDTH}x{FLYER_REQUIRED_HEIGHT}px WebP flyer for the mobile
+            card layout.
           </p>
         </div>
         <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-slate-500">
@@ -98,7 +89,7 @@ export function FlyerUploadField({ inputClass }: FlyerUploadFieldProps) {
           id="flyerFile"
           name="flyerFile"
           type="file"
-          accept=".webp,image/webp"
+          accept={FLYER_ACCEPTED_EXTENSIONS.join(",")}
           onChange={handleChange}
           className={inputClass}
         />
@@ -114,7 +105,7 @@ export function FlyerUploadField({ inputClass }: FlyerUploadFieldProps) {
         }`}
       >
         {message ??
-          "Recommended export: portrait artwork with legible date, city, and venue at phone size."}
+          "Recommended artwork: portrait-oriented flyer with the date, city, and venue large enough to survive automatic fitting."}
       </p>
     </div>
   );

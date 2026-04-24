@@ -6,6 +6,7 @@ const nextConfig = {
     ".prisma/client",
     "@prisma/adapter-neon",
     "@neondatabase/serverless",
+    "sharp",
   ],
   images: {
     remotePatterns: [

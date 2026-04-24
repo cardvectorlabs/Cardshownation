@@ -202,8 +202,9 @@ export default async function PromoterPortalPage({
             </p>
             <h2 className="mt-3 text-2xl font-semibold">Mobile-first artwork</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300">
-              Flyers in the portal must be uploaded as WebP at 1200x1600 pixels. That keeps the
-              card layout sharp on phones without oversized files.
+              Upload JPG, PNG, or WebP artwork and the portal will fit it into a
+              1200x1600 WebP flyer. That keeps the card layout sharp on phones
+              without forcing exact export dimensions up front.
             </p>
             <Link
               href="/promoter/new-show"
@@ -270,7 +271,7 @@ function PromoterLandingPage() {
           },
           {
             title: "Flyer rules built in",
-            body: "The form calls for mobile-first WebP flyers at 1200x1600 pixels so uploads stay lightweight and consistent.",
+            body: "Upload JPG, PNG, or WebP artwork and the form will convert it into a mobile-first 1200x1600 WebP flyer automatically.",
           },
         ].map((item) => (
           <section

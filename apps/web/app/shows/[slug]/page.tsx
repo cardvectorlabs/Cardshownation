@@ -13,8 +13,9 @@ import {
   Ticket,
   Users,
 } from "lucide-react";
+import { normalizeFlyerUrlForRender } from "@/lib/flyers";
 import { getStateByCode } from "@/lib/states";
-import { getShowBySlug } from "@/lib/shows";
+import { ensureManagedShowFlyerImage, getShowBySlug } from "@/lib/shows";
 import { normalizeExternalUrl } from "@/lib/url";
 import { formatShowDate, stateCodeToSlug } from "@/lib/utils";
 
@@ -81,7 +82,12 @@ export default async function ShowDetailPage({ params }: Props) {
   const organizerWebsiteUrl = normalizeExternalUrl(show.organizer?.websiteUrl);
   const organizerFacebookUrl = normalizeExternalUrl(show.organizer?.facebookUrl);
   const organizerInstagramUrl = normalizeExternalUrl(show.organizer?.instagramUrl);
-  const flyerImageUrl = normalizeExternalUrl(show.flyerImageUrl);
+  const managedFlyerImageUrl = await ensureManagedShowFlyerImage(
+    show.id,
+    show.title,
+    show.flyerImageUrl
+  );
+  const flyerImageUrl = normalizeFlyerUrlForRender(managedFlyerImageUrl);
   const organizerEmail = show.organizer?.email?.trim() || null;
   const promoterContacts: Array<{
     href: string;
