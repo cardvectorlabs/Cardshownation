@@ -8,6 +8,10 @@ type AdSlotProps = {
   className?: string;
 };
 
+const GOOGLE_ADSENSE_CLIENT_ID =
+  process.env.NEXT_PUBLIC_GOOGLE_ADSENSE_CLIENT_ID?.trim() ||
+  "ca-pub-8982218628461022";
+
 declare global {
   interface Window {
     adsbygoogle: unknown[];
@@ -34,7 +38,7 @@ export function AdSlot({ slot, format = "auto", className = "" }: AdSlotProps) {
         ref={ref}
         className="adsbygoogle"
         style={{ display: "block" }}
-        data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
+        data-ad-client={GOOGLE_ADSENSE_CLIENT_ID}
         data-ad-slot={slot}
         data-ad-format={format}
         data-full-width-responsive="true"

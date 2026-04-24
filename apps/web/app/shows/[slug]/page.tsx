@@ -13,6 +13,7 @@ import {
   Ticket,
   Users,
 } from "lucide-react";
+import { AdSlot } from "@/components/ads/ad-slot";
 import { normalizeFlyerUrlForRender } from "@/lib/flyers";
 import { getStateByCode } from "@/lib/states";
 import { ensureManagedShowFlyerImage, getShowBySlug } from "@/lib/shows";
@@ -24,6 +25,7 @@ type Props = {
 };
 
 export const dynamic = "force-dynamic";
+const SHOW_SIDEBAR_AD_SLOT = process.env.NEXT_PUBLIC_AD_SLOT_SHOW_SIDEBAR?.trim() ?? "";
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
@@ -557,6 +559,19 @@ export default async function ShowDetailPage({ params }: Props) {
                 </Link>
               </div>
             </section>
+
+            {SHOW_SIDEBAR_AD_SLOT && (
+              <section className="rounded-[2rem] border border-slate-200 bg-white p-4 shadow-sm">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+                  Sponsored
+                </p>
+                <AdSlot
+                  slot={SHOW_SIDEBAR_AD_SLOT}
+                  format="rectangle"
+                  className="min-h-[250px]"
+                />
+              </section>
+            )}
 
             <section className="rounded-[2rem] bg-slate-950 p-5 text-white">
               <div className="flex items-center gap-2 text-brand-300">

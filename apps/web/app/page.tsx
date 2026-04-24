@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Search } from "lucide-react";
+import { AdSlot } from "@/components/ads/ad-slot";
 import { NearMeButton } from "@/components/shows/near-me-button";
 import { ShowListItem } from "@/components/shows/show-list-item";
 import { getPromoterSession } from "@/lib/promoter-auth";
@@ -16,6 +17,8 @@ export const metadata: Metadata = {
   description:
     "The national card show directory. Find upcoming sports card, Pokemon, and TCG shows by state, city, and date.",
 };
+
+const HOME_INLINE_AD_SLOT = process.env.NEXT_PUBLIC_AD_SLOT_HOME_INLINE?.trim() ?? "";
 
 export default async function HomePage() {
   const [session, upcomingShows, stats] = await Promise.all([
@@ -169,6 +172,17 @@ export default async function HomePage() {
           ))}
         </div>
       </section>
+
+      {HOME_INLINE_AD_SLOT && (
+        <section className="container-wide pb-10">
+          <div className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <p className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Sponsored
+            </p>
+            <AdSlot slot={HOME_INLINE_AD_SLOT} format="horizontal" className="min-h-[90px]" />
+          </div>
+        </section>
+      )}
 
       {/* State directory */}
       <section className="container-wide pb-10">
