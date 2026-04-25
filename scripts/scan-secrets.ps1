@@ -47,6 +47,42 @@ $historyAllowlist = @(
   '80bcddef9cda1709bde9f4816d5fdcb3a1457855'
 )
 
+function Test-IsExcludedPath {
+  param(
+    [string]$RelativePath
+  )
+
+  $normalizedPath = $RelativePath.Replace('\', '/')
+  foreach ($exclude in $pathExcludes) {
+    if ($normalizedPath.StartsWith($exclude, [System.StringComparison]::OrdinalIgnoreCase)) {
+      return $true
+    }
+  }
+
+  foreach ($exclude in $fileExcludes) {
+    if ($normalizedPath.Equals($exclude, [System.StringComparison]::OrdinalIgnoreCase)) {
+      return $true
+    }
+  }
+
+  if ($normalizedPath -like '.env*') {
+    return $true
+  }
+
+  return $false
+}
+
+function Get-SearchableFiles {
+  Get-ChildItem -Path . -Recurse -File -Force | Where-Object {
+    $relativePath = Resolve-Path -LiteralPath $_.FullName -Relative
+    if ($relativePath.StartsWith('.\')) {
+      $relativePath = $relativePath.Substring(2)
+    }
+
+    -not (Test-IsExcludedPath -RelativePath $relativePath)
+  }
+}
+
 function Invoke-Rg {
   param(
     [string]$Regex
@@ -72,9 +108,35 @@ function Invoke-Rg {
   return $output
 }
 
+function Invoke-SourceScan {
+  param(
+    [string]$Regex
+  )
+
+  $rg = Get-Command rg -ErrorAction SilentlyContinue
+  if ($rg) {
+    return Invoke-Rg -Regex $Regex
+  }
+
+  $results = New-Object System.Collections.Generic.List[string]
+  foreach ($file in Get-SearchableFiles) {
+    $relativePath = Resolve-Path -LiteralPath $file.FullName -Relative
+    if ($relativePath.StartsWith('.\')) {
+      $relativePath = $relativePath.Substring(2)
+    }
+
+    $matches = Select-String -Path $file.FullName -Pattern $Regex -AllMatches -Encoding utf8 -ErrorAction SilentlyContinue
+    foreach ($match in $matches) {
+      $results.Add(('{0}:{1}:{2}' -f $relativePath.Replace('\', '/'), $match.LineNumber, $match.Line.Trim()))
+    }
+  }
+
+  return $results
+}
+
 $sourceFindings = New-Object System.Collections.Generic.List[string]
 foreach ($pattern in $sourcePatterns) {
-  $matches = Invoke-Rg -Regex $pattern.Regex
+  $matches = Invoke-SourceScan -Regex $pattern.Regex
   foreach ($match in $matches) {
     $sourceFindings.Add("[source] $($pattern.Name): $match")
   }

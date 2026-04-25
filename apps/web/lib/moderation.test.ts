@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test, { afterEach, before, mock } from "node:test";
 
-process.env.DATABASE_URL ??= "postgresql://user:pass@localhost:5432/csn_test";
+process.env.DATABASE_URL ??= "postgresql://user@localhost:5432/csn_test";
 process.env.CSN_DATA_MODE = "live";
 
 let db: typeof import("./db").db;
