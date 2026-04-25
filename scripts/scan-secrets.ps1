@@ -47,6 +47,61 @@ $historyAllowlist = @(
   '80bcddef9cda1709bde9f4816d5fdcb3a1457855'
 )
 
+function Parse-MatchRecord {
+  param(
+    [string]$Record
+  )
+
+  if ($Record -match '^(?<path>.*?):(?<line>\d+):(?<text>.*)$') {
+    return @{
+      Path = $Matches.path.Replace('\', '/').TrimStart('.', '/')
+      Line = [int]$Matches.line
+      Text = $Matches.text
+    }
+  }
+
+  return @{
+    Path = ''
+    Line = 0
+    Text = $Record
+  }
+}
+
+function Test-IsIgnoredFinding {
+  param(
+    [string]$PatternName,
+    [string]$Record
+  )
+
+  $parsed = Parse-MatchRecord -Record $Record
+  $path = $parsed.Path
+  $text = $parsed.Text.Trim()
+
+  if ($path -eq 'scripts/scan-secrets.ps1') {
+    return $true
+  }
+
+  if ($path -like '*.env.example') {
+    if ($PatternName -eq 'Credential-like string assignment' -and $text -match '=\s*"replace-me"$') {
+      return $true
+    }
+
+    if ($PatternName -eq 'Database URL with inline password' -and $text -match '://postgres:replace-me@your-project\.neon\.tech/') {
+      return $true
+    }
+  }
+
+  if (
+    $path -eq 'apps/web/scripts/smoke-promoter-portal.ts' -and
+    $PatternName -eq 'Credential-like string assignment' -and
+    $text -eq 'const password = "PortalTest123!";'
+  ) {
+    return $true
+  }
+
+  return $false
+}
+
 function Test-IsExcludedPath {
   param(
     [string]$RelativePath
@@ -138,7 +193,9 @@ $sourceFindings = New-Object System.Collections.Generic.List[string]
 foreach ($pattern in $sourcePatterns) {
   $matches = Invoke-SourceScan -Regex $pattern.Regex
   foreach ($match in $matches) {
-    $sourceFindings.Add("[source] $($pattern.Name): $match")
+    if (-not (Test-IsIgnoredFinding -PatternName $pattern.Name -Record $match)) {
+      $sourceFindings.Add("[source] $($pattern.Name): $match")
+    }
   }
 }
 
