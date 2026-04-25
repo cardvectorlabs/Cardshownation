@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
+import { Suspense } from "react";
 import { GooglePageViewTracker } from "@/components/analytics/google-page-view-tracker";
+import { MetaPixelTracker } from "@/components/analytics/meta-pixel-tracker";
 import { Footer } from "@/components/layout/footer";
 import { Header } from "@/components/layout/header";
 import "./globals.css";
@@ -14,6 +16,8 @@ const inter = Inter({
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID?.trim() ?? "";
 const GOOGLE_ADS_ID = process.env.NEXT_PUBLIC_GOOGLE_ADS_ID?.trim() ?? "";
 const GOOGLE_TAG_ID = GA_MEASUREMENT_ID || GOOGLE_ADS_ID;
+const META_PIXEL_ID =
+  process.env.NEXT_PUBLIC_META_PIXEL_ID?.trim() || "1680224933357763";
 
 export const metadata: Metadata = {
   title: {
@@ -73,9 +77,41 @@ export default function RootLayout({
           strategy="afterInteractive"
           crossOrigin="anonymous"
         />
+        {META_PIXEL_ID && (
+          <Script id="meta-pixel-init" strategy="afterInteractive">
+            {`
+              !function(f,b,e,v,n,t,s)
+              {if(f.fbq)return;n=f.fbq=function(){n.callMethod?
+              n.callMethod.apply(n,arguments):n.queue.push(arguments)};
+              if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
+              n.queue=[];t=b.createElement(e);t.async=!0;
+              t.src=v;s=b.getElementsByTagName(e)[0];
+              s.parentNode.insertBefore(t,s)}(window, document,'script',
+              'https://connect.facebook.net/en_US/fbevents.js');
+              fbq('init', '${META_PIXEL_ID}');
+            `}
+          </Script>
+        )}
       </head>
       <body className="min-h-screen bg-slate-50 font-sans text-slate-950 antialiased">
-        {GOOGLE_TAG_ID && <GooglePageViewTracker />}
+        <Suspense fallback={null}>
+          {GOOGLE_TAG_ID && <GooglePageViewTracker />}
+          {META_PIXEL_ID && <MetaPixelTracker />}
+        </Suspense>
+        {META_PIXEL_ID && (
+          <noscript>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              height="1"
+              width="1"
+              style={{ display: "none" }}
+              src={`https://www.facebook.com/tr?id=${encodeURIComponent(
+                META_PIXEL_ID
+              )}&ev=PageView&noscript=1`}
+              alt=""
+            />
+          </noscript>
+        )}
         <div className="flex min-h-screen flex-col">
           <Header />
           <main className="flex-1">{children}</main>
