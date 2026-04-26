@@ -9,7 +9,6 @@ import {
   Globe,
   Mail,
   MapPin,
-  Megaphone,
   Ticket,
   Users,
 } from "lucide-react";
@@ -51,6 +50,14 @@ function formatExternalHost(value: string) {
   }
 }
 
+function buildHoursLabel(show: Awaited<ReturnType<typeof getShowBySlug>>) {
+  if (!show?.startTimeLabel) {
+    return "Hours not listed";
+  }
+
+  return `${show.startTimeLabel}${show.endTimeLabel ? ` - ${show.endTimeLabel}` : ""}`;
+}
+
 export default async function ShowDetailPage({ params }: Props) {
   const { slug } = await params;
   const show = await getShowBySlug(slug);
@@ -75,6 +82,7 @@ export default async function ShowDetailPage({ params }: Props) {
   const vendorLabel =
     show.vendorDetails ??
     (show.tableCount ? `${show.tableCount.toLocaleString()} tables expected` : null);
+  const hoursLabel = buildHoursLabel(show);
   const admissionLabel = show.isFree
     ? "Free admission"
     : show.admissionPrice ?? "Paid admission";
@@ -267,25 +275,74 @@ export default async function ShowDetailPage({ params }: Props) {
                 {show.startTimeLabel && (
                   <div className="flex items-start gap-2">
                     <Clock className="mt-0.5 h-5 w-5 shrink-0 text-brand-700" />
-                    <span>
-                      {show.startTimeLabel}
-                      {show.endTimeLabel ? ` - ${show.endTimeLabel}` : ""}
-                    </span>
+                    <span>{hoursLabel}</span>
                   </div>
                 )}
               </div>
 
-              <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
-                {show.description ??
-                  `Find venue, admission, and organizer details for ${show.title}. This listing is part of the Card Show Nation directory for collectors planning upcoming sports card, Pokemon, and TCG weekends.`}
-              </p>
+              {show.description && (
+                <p className="mt-5 max-w-3xl text-sm leading-7 text-slate-600 sm:text-base">
+                  {show.description}
+                </p>
+              )}
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <div className="rounded-3xl bg-slate-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Ticket className="h-4 w-4 text-brand-700" />
+                    Admission
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">{admissionLabel}</p>
+                  {show.admissionNotes && (
+                    <p className="mt-1 text-sm leading-6 text-slate-500">{show.admissionNotes}</p>
+                  )}
+                </div>
+
+                <div className="rounded-3xl bg-slate-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Users className="h-4 w-4 text-brand-700" />
+                    Vendors
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {vendorLabel ?? "Vendor details coming soon"}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl bg-slate-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <MapPin className="h-4 w-4 text-brand-700" />
+                    Venue
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {show.venue?.name ?? `${show.city}, ${stateName}`}
+                  </p>
+                </div>
+
+                <div className="rounded-3xl bg-slate-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <Clock className="h-4 w-4 text-brand-700" />
+                    Parking
+                  </div>
+                  <p className="mt-2 text-sm leading-6 text-slate-600">
+                    {show.parkingInfo ?? show.venue?.parkingInfo ?? "Parking details not listed"}
+                  </p>
+                </div>
+              </div>
             </div>
 
             <div className="rounded-[1.5rem] bg-slate-950 p-5 text-white">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-300">
-                Quick facts
+                Quick info
               </p>
               <div className="mt-5 space-y-4 text-sm">
+                <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
+                  <span className="text-slate-400">When</span>
+                  <span className="text-right font-medium">{formatShowDate(show.startDate, show.endDate)}</span>
+                </div>
+                <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
+                  <span className="text-slate-400">Hours</span>
+                  <span className="text-right font-medium">{hoursLabel}</span>
+                </div>
                 <div className="flex items-start justify-between gap-3 border-b border-white/10 pb-4">
                   <span className="text-slate-400">Admission</span>
                   <span className="text-right font-medium">{admissionLabel}</span>
@@ -366,60 +423,6 @@ export default async function ShowDetailPage({ params }: Props) {
             )}
 
             <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-2xl font-semibold text-slate-950">
-                Event details
-              </h2>
-              <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <CalendarDays className="h-4 w-4 text-brand-700" />
-                    Dates
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {formatShowDate(show.startDate, show.endDate)}
-                  </p>
-                </div>
-
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Clock className="h-4 w-4 text-brand-700" />
-                    Hours
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {show.startTimeLabel
-                      ? `${show.startTimeLabel}${show.endTimeLabel ? ` - ${show.endTimeLabel}` : ""}`
-                      : "Hours not provided yet"}
-                  </p>
-                </div>
-
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Ticket className="h-4 w-4 text-brand-700" />
-                    Admission
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {admissionLabel}
-                  </p>
-                  {show.admissionNotes && (
-                    <p className="mt-2 text-sm leading-6 text-slate-500">
-                      {show.admissionNotes}
-                    </p>
-                  )}
-                </div>
-
-                <div className="rounded-3xl bg-slate-50 p-4">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <Users className="h-4 w-4 text-brand-700" />
-                    Vendor info
-                  </div>
-                  <p className="mt-3 text-sm leading-6 text-slate-600">
-                    {vendorLabel ?? "Vendor details will be added as the event is updated."}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <section className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm">
               <h2 className="text-2xl font-semibold text-slate-950">Venue</h2>
               <div className="mt-5 space-y-2 text-sm leading-6 text-slate-600">
                 {show.venue ? (
@@ -461,11 +464,6 @@ export default async function ShowDetailPage({ params }: Props) {
                 <h2 className="text-2xl font-semibold text-slate-950">
                   Promoter and vendor contact
                 </h2>
-                <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
-                  Need table availability, vendor details, or a direct answer
-                  before the show? Use the contact methods below when the
-                  promoter has shared them.
-                </p>
 
                 {show.organizer && (
                   <div className="mt-5 rounded-[1.5rem] bg-slate-50 p-5">
@@ -479,10 +477,6 @@ export default async function ShowDetailPage({ params }: Props) {
                         </span>
                       )}
                     </div>
-                    <p className="mt-2 text-sm leading-6 text-slate-600">
-                      Promoter contact details appear here so attendees can ask
-                      questions and vendors can follow up on tables or setup.
-                    </p>
                   </div>
                 )}
 
@@ -541,9 +535,7 @@ export default async function ShowDetailPage({ params }: Props) {
 
           <aside className="space-y-6">
             <section className="rounded-[2rem] border border-slate-200 bg-white p-5 shadow-sm">
-              <h2 className="text-lg font-semibold text-slate-950">
-                Explore nearby listings
-              </h2>
+              <h2 className="text-lg font-semibold text-slate-950">More shows</h2>
               <div className="mt-4 grid gap-3 text-sm">
                 <Link
                   href={`/card-shows/${stateSlug}`}
@@ -572,29 +564,6 @@ export default async function ShowDetailPage({ params }: Props) {
                 />
               </section>
             )}
-
-            <section className="rounded-[2rem] bg-slate-950 p-5 text-white">
-              <div className="flex items-center gap-2 text-brand-300">
-                <Megaphone className="h-4 w-4" />
-                <p className="text-sm font-semibold uppercase tracking-[0.2em]">
-                  Promoter CTA
-                </p>
-              </div>
-              <p className="mt-4 text-lg font-semibold">
-                Need your own listing like this?
-              </p>
-              <p className="mt-3 text-sm leading-6 text-slate-300">
-                Submit a show now, then expand later into promoter profiles,
-                premium placement, and event tools as Card Show Nation grows.
-              </p>
-              <Link
-                href="/submit-show"
-                className="mt-5 inline-flex items-center gap-2 rounded-full bg-white px-4 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
-              >
-                Submit a show
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </section>
           </aside>
         </div>
       </div>
