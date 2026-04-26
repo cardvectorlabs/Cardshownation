@@ -378,8 +378,19 @@ export async function deleteUserAccountByAdmin(input: AdminUserActionInput) {
     throw new Error("Admin accounts cannot be deleted here.");
   }
 
-  await db.user.delete({
-    where: { id: user.id },
+  await db.$transaction(async (tx) => {
+    if (user.organizer?.id) {
+      await tx.organizer.update({
+        where: { id: user.organizer.id },
+        data: {
+          userId: null,
+        },
+      });
+    }
+
+    await tx.user.delete({
+      where: { id: user.id },
+    });
   });
 
   await writeAuditLog({
@@ -392,6 +403,7 @@ export async function deleteUserAccountByAdmin(input: AdminUserActionInput) {
       email: user.email,
       role: user.role,
       organizerId: user.organizer?.id ?? null,
+      organizerDetached: Boolean(user.organizer?.id),
     },
   });
 }
