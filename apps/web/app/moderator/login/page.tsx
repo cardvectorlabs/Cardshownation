@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { authenticateModerator } from "@/lib/moderators";
@@ -164,6 +165,12 @@ export default async function ModeratorLoginPage({
         </form>
 
         <p className="mt-6 text-sm text-slate-600">
+          <Link href="/moderator/forgot-password" className="font-semibold text-brand-700 hover:text-brand-800">
+            Forgot password?
+          </Link>
+        </p>
+
+        <p className="mt-3 text-sm text-slate-600">
           Moderator accounts are created by admin.
         </p>
       </div>

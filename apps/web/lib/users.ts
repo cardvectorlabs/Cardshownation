@@ -1,6 +1,9 @@
 import { db } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit-log";
+import { sendPasswordResetEmail } from "@/lib/email";
+import { createPasswordResetToken } from "@/lib/password-reset-token";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
+import type { UserRole } from "@csn/db";
 
 type RegisterFanInput = {
   email: string;
@@ -20,6 +23,26 @@ type AdminModeratorActionInput = {
   moderatorUserId: string;
   actorId: string;
 };
+
+type AdminUserActionInput = {
+  actorId: string;
+  userId: string;
+};
+
+function getAppUrl() {
+  return process.env.NEXT_PUBLIC_APP_URL?.trim() || "https://cardshownation.com";
+}
+
+export function getPasswordResetPathForRole(role: UserRole) {
+  switch (role) {
+    case "MODERATOR":
+      return "/moderator/reset-password";
+    case "ORGANIZER":
+      return "/promoter/reset-password";
+    default:
+      return "/account/reset-password";
+  }
+}
 
 export async function registerFanAccount(input: RegisterFanInput) {
   const email = input.email.trim().toLowerCase();
@@ -181,6 +204,33 @@ export async function listModeratorAccounts() {
   });
 }
 
+export async function listManageableAccounts() {
+  return db.user.findMany({
+    where: {
+      role: {
+        not: "ADMIN",
+      },
+    },
+    include: {
+      organizer: {
+        select: {
+          id: true,
+          name: true,
+          verified: true,
+        },
+      },
+      _count: {
+        select: {
+          moderatedSubmissions: true,
+          subscriptions: true,
+          savedShows: true,
+        },
+      },
+    },
+    orderBy: [{ createdAt: "desc" }],
+  });
+}
+
 export async function getUserRoleStats() {
   const [fans, moderators, promoters, admins, subscriptions] = await Promise.all([
     db.user.count({ where: { role: "FAN" } }),
@@ -244,6 +294,104 @@ export async function revokeModeratorAccessByAdmin(input: AdminModeratorActionIn
     targetId: user.id,
     details: {
       email: user.email,
+    },
+  });
+}
+
+export async function assignModeratorAccessByAdmin(input: AdminUserActionInput) {
+  const user = await db.user.findUnique({
+    where: { id: input.userId },
+  });
+
+  if (!user) {
+    throw new Error("User account not found.");
+  }
+
+  if (user.role === "ADMIN" || user.role === "ORGANIZER") {
+    throw new Error("That account type cannot be converted to moderator.");
+  }
+
+  if (user.role !== "MODERATOR") {
+    await db.user.update({
+      where: { id: user.id },
+      data: { role: "MODERATOR" },
+    });
+  }
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: "ADMIN",
+    action: "moderator.assigned",
+    targetType: "User",
+    targetId: user.id,
+    details: {
+      email: user.email,
+      previousRole: user.role,
+    },
+  });
+}
+
+export async function sendPasswordResetByAdmin(input: AdminUserActionInput) {
+  const user = await db.user.findUnique({
+    where: { id: input.userId },
+  });
+
+  if (!user || user.role === "ADMIN") {
+    throw new Error("User account not found.");
+  }
+
+  const token = await createPasswordResetToken(user.id);
+  const resetUrl = `${getAppUrl()}${getPasswordResetPathForRole(user.role)}?token=${token}`;
+
+  await sendPasswordResetEmail(user.email, resetUrl, user.role);
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: "ADMIN",
+    action: "user.password_reset_sent",
+    targetType: "User",
+    targetId: user.id,
+    details: {
+      email: user.email,
+      role: user.role,
+    },
+  });
+}
+
+export async function deleteUserAccountByAdmin(input: AdminUserActionInput) {
+  const user = await db.user.findUnique({
+    where: { id: input.userId },
+    include: {
+      organizer: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    throw new Error("User account not found.");
+  }
+
+  if (user.role === "ADMIN") {
+    throw new Error("Admin accounts cannot be deleted here.");
+  }
+
+  await db.user.delete({
+    where: { id: user.id },
+  });
+
+  await writeAuditLog({
+    actorId: input.actorId,
+    actorRole: "ADMIN",
+    action: "user.deleted",
+    targetType: "User",
+    targetId: user.id,
+    details: {
+      email: user.email,
+      role: user.role,
+      organizerId: user.organizer?.id ?? null,
     },
   });
 }

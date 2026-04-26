@@ -4,18 +4,23 @@ import { updateAdminPassword } from "@/lib/admins";
 import { getRecentAuditLogs } from "@/lib/audit-log";
 import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import {
-  listModeratorAccounts,
-  getUserRoleStats,
+  assignModeratorAccessByAdmin,
   createModeratorAccountByAdmin,
-  resetModeratorPasswordByAdmin,
+  deleteUserAccountByAdmin,
+  getUserRoleStats,
+  listManageableAccounts,
+  listModeratorAccounts,
   revokeModeratorAccessByAdmin,
+  sendPasswordResetByAdmin,
 } from "@/lib/users";
 
 type SearchParams = {
   created?: string;
   password?: string;
-  moderatorReset?: string;
+  moderatorAssigned?: string;
   moderatorRevoked?: string;
+  resetSent?: string;
+  userDeleted?: string;
   error?: string;
 };
 
@@ -91,28 +96,25 @@ async function changeMyPassword(formData: FormData) {
   }
 }
 
-async function resetModeratorPassword(formData: FormData) {
+async function assignModerator(formData: FormData) {
   "use server";
 
   const session = await requireAdminSession("/admin/users");
-  const moderatorUserId = readRequiredString(formData, "moderatorUserId", 120);
-  const nextPassword = readRequiredString(formData, "nextPassword", 200);
-  const confirmPassword = readRequiredString(formData, "confirmPassword", 200);
+  const userId = readRequiredString(formData, "userId", 120);
 
-  if (!moderatorUserId || nextPassword.length < 12 || nextPassword !== confirmPassword) {
-    redirect("/admin/users?error=moderator-reset");
+  if (!userId) {
+    redirect("/admin/users?error=moderator-assign");
   }
 
   try {
-    await resetModeratorPasswordByAdmin({
+    await assignModeratorAccessByAdmin({
       actorId: session.user.id,
-      moderatorUserId,
-      nextPassword,
+      userId,
     });
-    redirect("/admin/users?moderatorReset=1");
+    redirect("/admin/users?moderatorAssigned=1");
   } catch (error) {
     rethrowIfRedirectError(error);
-    redirect("/admin/users?error=moderator-reset");
+    redirect("/admin/users?error=moderator-assign");
   }
 }
 
@@ -138,44 +140,129 @@ async function revokeModerator(formData: FormData) {
   }
 }
 
+async function sendResetLink(formData: FormData) {
+  "use server";
+
+  const session = await requireAdminSession("/admin/users");
+  const userId = readRequiredString(formData, "userId", 120);
+
+  if (!userId) {
+    redirect("/admin/users?error=reset-send");
+  }
+
+  try {
+    await sendPasswordResetByAdmin({
+      actorId: session.user.id,
+      userId,
+    });
+    redirect("/admin/users?resetSent=1");
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect("/admin/users?error=reset-send");
+  }
+}
+
+async function deleteUser(formData: FormData) {
+  "use server";
+
+  const session = await requireAdminSession("/admin/users");
+  const userId = readRequiredString(formData, "userId", 120);
+
+  if (!userId || userId === session.user.id) {
+    redirect("/admin/users?error=user-delete");
+  }
+
+  try {
+    await deleteUserAccountByAdmin({
+      actorId: session.user.id,
+      userId,
+    });
+    redirect("/admin/users?userDeleted=1");
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect("/admin/users?error=user-delete");
+  }
+}
+
+function getMessage(sp: SearchParams) {
+  if (sp.created === "1") {
+    return "Moderator account created.";
+  }
+
+  if (sp.password === "1") {
+    return "Admin password updated.";
+  }
+
+  if (sp.moderatorAssigned === "1") {
+    return "Moderator access assigned.";
+  }
+
+  if (sp.moderatorRevoked === "1") {
+    return "Moderator access revoked.";
+  }
+
+  if (sp.resetSent === "1") {
+    return "Password reset email sent.";
+  }
+
+  if (sp.userDeleted === "1") {
+    return "User account deleted.";
+  }
+
+  if (sp.error === "moderator") {
+    return "Moderator creation failed. Check the name, email, and password fields.";
+  }
+
+  if (sp.error === "password") {
+    return "Password update failed. Check your current password and confirmation.";
+  }
+
+  if (sp.error === "moderator-assign") {
+    return "Moderator assignment failed. Only member accounts can be promoted here.";
+  }
+
+  if (sp.error === "moderator-revoke") {
+    return "Moderator revoke failed.";
+  }
+
+  if (sp.error === "reset-send") {
+    return "Password reset email could not be sent.";
+  }
+
+  if (sp.error === "user-delete") {
+    return "User deletion failed.";
+  }
+
+  return null;
+}
+
+function formatRole(role: string) {
+  return role.charAt(0) + role.slice(1).toLowerCase();
+}
+
 export default async function AdminUsersPage({
   searchParams,
 }: {
   searchParams: Promise<SearchParams>;
 }) {
-  const [session, moderators, stats, auditLogs, sp] = await Promise.all([
+  const [session, moderators, manageableAccounts, stats, auditLogs, sp] = await Promise.all([
     requireAdminSession("/admin/users"),
     listModeratorAccounts(),
+    listManageableAccounts(),
     getUserRoleStats(),
     getRecentAuditLogs(12),
     searchParams,
   ]);
 
-  const message =
-    sp.created === "1"
-      ? "Moderator account created."
-      : sp.password === "1"
-        ? "Admin password updated."
-        : sp.moderatorReset === "1"
-          ? "Moderator password reset."
-          : sp.moderatorRevoked === "1"
-            ? "Moderator access revoked."
-        : sp.error === "moderator"
-          ? "Moderator creation failed. Check the name, email, and password fields."
-          : sp.error === "password"
-            ? "Password update failed. Check your current password and confirmation."
-            : sp.error === "moderator-reset"
-              ? "Moderator password reset failed. Use matching passwords with at least 12 characters."
-              : sp.error === "moderator-revoke"
-                ? "Moderator revoke failed."
-            : null;
+  const message = getMessage(sp);
 
   return (
     <div className="p-6 lg:p-10">
       <div className="mb-8">
         <h1 className="text-2xl font-bold text-slate-900">Users</h1>
         <p className="mt-2 max-w-3xl text-sm text-slate-500">
-          Manage moderator access, rotate your admin password, and review recent sensitive actions.
+          Manage account access, send password reset links, promote moderators, and review
+          recent sensitive actions.
         </p>
       </div>
 
@@ -197,7 +284,8 @@ export default async function AdminUsersPage({
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-900">Create moderator</h2>
           <p className="mt-2 text-sm text-slate-500">
-            Moderator access is admin-managed only. New moderator accounts can review submissions but cannot grant promoter trust or assign shows.
+            Use this when you need a dedicated moderator login. Existing member accounts can be
+            promoted from the account list below.
           </p>
 
           <form action={createModerator} className="mt-5 space-y-4">
@@ -239,7 +327,8 @@ export default async function AdminUsersPage({
         <section className="rounded-xl border border-slate-200 bg-white p-5">
           <h2 className="text-lg font-semibold text-slate-900">Rotate admin password</h2>
           <p className="mt-2 text-sm text-slate-500">
-            Your current admin account is {session.user.email}. Use at least 12 characters for the replacement password.
+            Your current admin account is {session.user.email}. Use at least 12 characters for
+            the replacement password.
           </p>
 
           <form action={changeMyPassword} className="mt-5 space-y-4">
@@ -288,28 +377,17 @@ export default async function AdminUsersPage({
                     {moderator.name ?? moderator.email}
                   </p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {moderator.email} · {moderator._count.moderatedSubmissions} reviewed submissions
+                    {moderator.email} · {moderator._count.moderatedSubmissions} reviewed
+                    submissions
                   </p>
-                  <div className="mt-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <form action={resetModeratorPassword} className="flex flex-col gap-3 sm:flex-row">
-                      <input type="hidden" name="moderatorUserId" value={moderator.id} />
-                      <input
-                        name="nextPassword"
-                        type="password"
-                        placeholder="New moderator password"
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-                      />
-                      <input
-                        name="confirmPassword"
-                        type="password"
-                        placeholder="Confirm password"
-                        className="rounded-lg border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-400"
-                      />
+                  <div className="mt-4 flex flex-wrap gap-3">
+                    <form action={sendResetLink}>
+                      <input type="hidden" name="userId" value={moderator.id} />
                       <button
                         type="submit"
                         className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
                       >
-                        Reset password
+                        Send reset email
                       </button>
                     </form>
                     <form action={revokeModerator}>
@@ -340,7 +418,8 @@ export default async function AdminUsersPage({
                 <div key={entry.id} className="px-5 py-4">
                   <p className="text-sm font-semibold text-slate-900">{entry.action}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    {entry.actor?.name ?? entry.actor?.email ?? "System"} · {new Date(entry.createdAt).toLocaleString()}
+                    {entry.actor?.name ?? entry.actor?.email ?? "System"} ·{" "}
+                    {new Date(entry.createdAt).toLocaleString()}
                   </p>
                   {entry.targetId && (
                     <p className="mt-1 text-xs text-slate-400">
@@ -353,6 +432,92 @@ export default async function AdminUsersPage({
           )}
         </section>
       </div>
+
+      <section className="mt-6 overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="border-b border-slate-100 bg-slate-50 px-5 py-3">
+          <h2 className="text-sm font-semibold text-slate-700">All non-admin accounts</h2>
+        </div>
+
+        {manageableAccounts.length === 0 ? (
+          <div className="p-5 text-sm text-slate-500">No accounts found.</div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {manageableAccounts.map((account) => {
+              const canPromote = account.role === "FAN";
+              const isModerator = account.role === "MODERATOR";
+              const isOrganizer = account.role === "ORGANIZER";
+
+              return (
+                <div key={account.id} className="px-5 py-4">
+                  <div className="flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-semibold text-slate-900">
+                          {account.name ?? account.email}
+                        </p>
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-slate-600">
+                          {formatRole(account.role)}
+                        </span>
+                        {account.organizer?.verified && (
+                          <span className="rounded-full bg-emerald-50 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wide text-emerald-700">
+                            Verified promoter
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-1 text-xs text-slate-500">{account.email}</p>
+                      <p className="mt-1 text-xs text-slate-400">
+                        Created {new Date(account.createdAt).toLocaleDateString()} ·{" "}
+                        {account._count.subscriptions} subscriptions · {account._count.savedShows} saved
+                        shows
+                        {isModerator
+                          ? ` · ${account._count.moderatedSubmissions} reviewed submissions`
+                          : ""}
+                        {isOrganizer && account.organizer
+                          ? ` · Organizer: ${account.organizer.name}`
+                          : ""}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <form action={sendResetLink}>
+                        <input type="hidden" name="userId" value={account.id} />
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-brand-200 bg-white px-3 py-2 text-xs font-semibold text-brand-700 transition-colors hover:bg-brand-50"
+                        >
+                          Send reset email
+                        </button>
+                      </form>
+
+                      {canPromote && (
+                        <form action={assignModerator}>
+                          <input type="hidden" name="userId" value={account.id} />
+                          <button
+                            type="submit"
+                            className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+                          >
+                            Make moderator
+                          </button>
+                        </form>
+                      )}
+
+                      <form action={deleteUser}>
+                        <input type="hidden" name="userId" value={account.id} />
+                        <button
+                          type="submit"
+                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100"
+                        >
+                          Delete account
+                        </button>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }

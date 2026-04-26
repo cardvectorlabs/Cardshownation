@@ -72,7 +72,12 @@ test("createModeratorSessionToken returns a verifiable moderator token", async (
 test("verifyModeratorSessionToken rejects tampered signatures", async () => {
   const token = await createModeratorSessionToken("moderator-123", "super-secret");
   const [payloadSegment, signatureSegment] = token.split(".");
-  const tamperedToken = `${payloadSegment}.${signatureSegment.slice(0, -1)}x`;
+  const decodedPayload = JSON.parse(Buffer.from(payloadSegment, "base64url").toString("utf8"));
+  decodedPayload.uid = "moderator-456";
+  const tamperedPayloadSegment = Buffer.from(JSON.stringify(decodedPayload), "utf8").toString(
+    "base64url"
+  );
+  const tamperedToken = `${tamperedPayloadSegment}.${signatureSegment}`;
 
   const payload = await verifyModeratorSessionToken(tamperedToken, "super-secret");
 

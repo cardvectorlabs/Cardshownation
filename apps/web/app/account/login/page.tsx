@@ -150,6 +150,12 @@ export default async function UserLoginPage({
         </form>
 
         <p className="mt-6 text-sm text-slate-600">
+          <Link href="/account/forgot-password" className="font-semibold text-brand-700 hover:text-brand-800">
+            Forgot password?
+          </Link>
+        </p>
+
+        <p className="mt-3 text-sm text-slate-600">
           Need an account?{" "}
           <Link href="/account/signup" className="font-semibold text-brand-700 hover:text-brand-800">
             Create account

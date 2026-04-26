@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import type { UserRole } from "@csn/db";
 
 function getResend() {
   const apiKey = process.env.RESEND_API_KEY?.trim();
@@ -10,8 +11,20 @@ function getResend() {
 
 const FROM_ADDRESS = "Card Show Nation <noreply@cardshownation.com>";
 
-export async function sendPromoterPasswordResetEmail(to: string, resetUrl: string) {
+function getResetAudienceLabel(role: UserRole) {
+  switch (role) {
+    case "MODERATOR":
+      return "moderator";
+    case "ORGANIZER":
+      return "promoter";
+    default:
+      return "account";
+  }
+}
+
+export async function sendPasswordResetEmail(to: string, resetUrl: string, role: UserRole) {
   const resend = getResend();
+  const audienceLabel = getResetAudienceLabel(role);
   await resend.emails.send({
     from: FROM_ADDRESS,
     to,
@@ -22,7 +35,7 @@ export async function sendPromoterPasswordResetEmail(to: string, resetUrl: strin
           Reset your password
         </h1>
         <p style="color:#475569;font-size:15px;line-height:1.6;margin-bottom:24px">
-          Click the button below to reset your promoter account password.
+          Click the button below to reset your Card Show Nation ${audienceLabel} password.
           This link expires in 1 hour.
         </p>
         <a href="${resetUrl}"
@@ -38,6 +51,10 @@ export async function sendPromoterPasswordResetEmail(to: string, resetUrl: strin
       </div>
     `,
   });
+}
+
+export async function sendPromoterPasswordResetEmail(to: string, resetUrl: string) {
+  await sendPasswordResetEmail(to, resetUrl, "ORGANIZER");
 }
 
 export async function sendPromoterVerificationEmail(
