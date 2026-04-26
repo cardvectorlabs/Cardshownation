@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { updateAdminPassword } from "@/lib/admins";
 import { getRecentAuditLogs } from "@/lib/audit-log";
+import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import {
   listModeratorAccounts,
   getUserRoleStats,
@@ -59,7 +60,8 @@ async function createModerator(formData: FormData) {
       password,
     });
     redirect("/admin/users?created=1");
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     redirect("/admin/users?error=moderator");
   }
 }
@@ -83,7 +85,8 @@ async function changeMyPassword(formData: FormData) {
       nextPassword,
     });
     redirect("/admin/users?password=1");
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     redirect("/admin/users?error=password");
   }
 }
@@ -107,7 +110,8 @@ async function resetModeratorPassword(formData: FormData) {
       nextPassword,
     });
     redirect("/admin/users?moderatorReset=1");
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     redirect("/admin/users?error=moderator-reset");
   }
 }
@@ -128,7 +132,8 @@ async function revokeModerator(formData: FormData) {
       moderatorUserId,
     });
     redirect("/admin/users?moderatorRevoked=1");
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     redirect("/admin/users?error=moderator-revoke");
   }
 }

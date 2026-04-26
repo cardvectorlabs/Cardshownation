@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { SubmitShowFormSteps } from "@/components/submit/submit-show-form-steps";
+import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import { consumeRateLimit } from "@/lib/rate-limit";
 import { getRequestIp } from "@/lib/request-ip";
 import { isValidDateInput, listDateRange } from "@/lib/daily-schedule";
@@ -173,7 +174,8 @@ async function handleSubmission(formData: FormData) {
       submitterEmail,
       payloadJson: payload,
     });
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     redirect("/submit-show?error=validation");
   }
 

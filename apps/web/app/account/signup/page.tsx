@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { US_STATES } from "@/lib/states";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import { getUserSession, getUserSessionSecret, startUserSession } from "@/lib/user-auth";
 import { registerFanAccount } from "@/lib/users";
 
@@ -76,7 +77,8 @@ async function handleSignup(formData: FormData) {
     resetRateLimit("user-signup", ip);
     await startUserSession(user.id);
     redirect("/account");
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     await delay(750);
     redirect("/account/signup?error=exists");
   }

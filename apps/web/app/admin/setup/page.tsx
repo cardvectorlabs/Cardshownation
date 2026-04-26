@@ -5,6 +5,7 @@ import { getAdminSession, startAdminSession } from "@/lib/admin-auth";
 import { hasAnyAdminUsers, registerInitialAdmin } from "@/lib/admins";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 
 const SETUP_WINDOW_MS = 60 * 60 * 1000;
 const SETUP_BLOCK_MS = 2 * 60 * 60 * 1000;
@@ -78,7 +79,8 @@ async function handleSetup(formData: FormData) {
     resetRateLimit("admin-setup", ip);
     await startAdminSession(user.id);
     redirect("/admin");
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     redirect("/admin/setup?error=exists");
   }
 }

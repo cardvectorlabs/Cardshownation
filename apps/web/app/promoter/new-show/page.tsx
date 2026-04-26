@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { PromoterShowForm } from "@/components/promoter/promoter-show-form";
+import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import { requirePromoterSession } from "@/lib/promoter-auth";
 import { createPromoterShow, getPromoterShowDefaults } from "@/lib/promoters";
 import { isValidDateInput, listDateRange } from "@/lib/daily-schedule";
@@ -166,7 +167,8 @@ async function handleCreateShow(formData: FormData) {
         result.status === "APPROVED" ? "approved" : "review"
       }`
     );
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     redirect("/promoter/new-show?error=validation");
   }
 }

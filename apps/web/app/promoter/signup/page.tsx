@@ -8,6 +8,7 @@ import {
 import { registerPromoterAccount } from "@/lib/promoters";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
+import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import { createVerificationToken } from "@/lib/verification-token";
 import { sendPromoterVerificationEmail } from "@/lib/email";
 
@@ -109,7 +110,8 @@ async function handleSignup(formData: FormData) {
     await sendPromoterVerificationEmail(email, verifyUrl);
 
     redirect("/promoter/signup?sent=1");
-  } catch {
+  } catch (error) {
+    rethrowIfRedirectError(error);
     await delay(750);
     redirect("/promoter/signup?error=exists");
   }
