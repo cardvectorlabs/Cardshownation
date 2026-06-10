@@ -41,6 +41,22 @@ const nextConfig = {
       },
     ];
   },
+  webpack: (config, { isServer, dev }) => {
+    if (dev && process.platform === "win32") {
+      config.cache = false;
+    }
+
+    if (isServer && Array.isArray(config.externals)) {
+      config.externals = [...config.externals, { canvas: "canvas" }];
+    }
+
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      canvas: false,
+    };
+
+    return config;
+  },
 };
 
 module.exports = nextConfig;

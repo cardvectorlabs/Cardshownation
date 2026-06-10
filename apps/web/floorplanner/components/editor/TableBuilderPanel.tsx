@@ -1,0 +1,116 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useEditorStore, selectSettings } from '@floorplanner/store/index'
+import { formatDimension } from '@floorplanner/lib/units'
+
+export interface TableBuilderConfig {
+  tableWidth: number
+  tableHeight: number
+}
+
+function clamp(raw: string, min: number, max: number, def: number): number {
+  const n = parseInt(raw)
+  if (isNaN(n)) return def
+  return Math.max(min, Math.min(max, n))
+}
+
+export default function TableBuilderPanel() {
+  const settings = useEditorStore(selectSettings)
+  const setConfig = useEditorStore(s => s.setTableBuilderConfig)
+
+  const [lengthStr, setLengthStr] = useState(String(settings.defaultTableWidth))
+  const [widthStr, setWidthStr]   = useState(String(settings.defaultTableHeight))
+  const [orientation, setOrientation] = useState<'horizontal' | 'vertical'>('horizontal')
+
+  useEffect(() => {
+    setLengthStr(String(settings.defaultTableWidth))
+    setWidthStr(String(settings.defaultTableHeight))
+  }, [settings.defaultTableWidth, settings.defaultTableHeight])
+
+  const length = clamp(lengthStr, 12, 240, settings.defaultTableWidth)
+  const tableWidth = clamp(widthStr, 6, 120, settings.defaultTableHeight)
+
+  useEffect(() => {
+    const w = orientation === 'horizontal' ? length : tableWidth
+    const h = orientation === 'horizontal' ? tableWidth : length
+    setConfig({ tableWidth: w, tableHeight: h })
+  }, [length, tableWidth, orientation, setConfig])
+
+  const blurLength = useCallback(() => setLengthStr(String(length)), [length])
+  const blurWidth  = useCallback(() => setWidthStr(String(tableWidth)), [tableWidth])
+
+  const presets = [
+    { label: '6ft Rect', w: 72, h: 30 },
+    { label: '8ft Rect', w: 96, h: 30 },
+    { label: '4ft Rect', w: 48, h: 30 },
+    { label: '60" Round', w: 60, h: 60 },
+    { label: '72" Round', w: 72, h: 72 },
+  ]
+
+  function applyPreset(w: number, h: number) {
+    setLengthStr(String(w))
+    setWidthStr(String(h))
+    setOrientation('horizontal')
+  }
+
+  return (
+    <div className="px-3 py-3 text-sm">
+      <p className="text-xs text-gray-500 mb-3">Click canvas to place</p>
+
+      {/* Presets */}
+      <div className="flex flex-wrap gap-1 mb-3">
+        {presets.map(p => (
+          <button
+            key={p.label}
+            onClick={() => applyPreset(p.w, p.h)}
+            className={`px-2 py-1 text-xs rounded border transition-colors ${
+              length === p.w && tableWidth === p.h
+                ? 'border-blue-500 bg-blue-50 text-blue-700'
+                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+            }`}
+          >
+            {p.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex gap-2 mb-2">
+        <label className="flex-1">
+          <span className="text-gray-600 text-xs">Length <span className="text-gray-400">({formatDimension(length)})</span></span>
+          <input
+            type="number" min={12} max={240}
+            value={lengthStr}
+            onChange={e => setLengthStr(e.target.value)}
+            onBlur={blurLength}
+            onKeyDown={e => e.stopPropagation()}
+            className="mt-0.5 w-full px-2 py-1 border border-gray-300 rounded text-sm"
+          />
+        </label>
+        <label className="flex-1">
+          <span className="text-gray-600 text-xs">Width <span className="text-gray-400">({formatDimension(tableWidth)})</span></span>
+          <input
+            type="number" min={6} max={120}
+            value={widthStr}
+            onChange={e => setWidthStr(e.target.value)}
+            onBlur={blurWidth}
+            onKeyDown={e => e.stopPropagation()}
+            className="mt-0.5 w-full px-2 py-1 border border-gray-300 rounded text-sm"
+          />
+        </label>
+      </div>
+
+      <label className="block">
+        <span className="text-gray-600 text-xs">Orientation</span>
+        <select
+          value={orientation}
+          onChange={e => setOrientation(e.target.value as 'horizontal' | 'vertical')}
+          className="mt-0.5 w-full px-2 py-1 border border-gray-300 rounded text-sm bg-white"
+        >
+          <option value="horizontal">Horizontal</option>
+          <option value="vertical">Vertical</option>
+        </select>
+      </label>
+    </div>
+  )
+}

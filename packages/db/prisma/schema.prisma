@@ -131,6 +131,7 @@ model Venue {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
   shows       Show[]
+  floorplans  ShowFloorplan[]
 
   @@unique([name, city, state], name: "name_city_state")
   @@index([state])
@@ -180,12 +181,35 @@ model Show {
   savedBy   SavedShow[]
   reports   ShowReport[]
   tags      ShowTag[]
+  floorplans ShowFloorplan[]
 
   @@index([state, status, startDate])
   @@index([city, state, status])
   @@index([slug])
   @@index([startDate, status])
   @@index([status, featuredRank])
+}
+
+model ShowFloorplan {
+  id         String   @id @default(cuid())
+  showId      String
+  venueId     String?
+  name        String
+  dataJson    Json
+  revision    Int      @default(1)
+  tableCount  Int      @default(0)
+  vendorCount Int      @default(0)
+  createdById String?
+  updatedById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  show  Show  @relation(fields: [showId], references: [id], onDelete: Cascade)
+  venue Venue? @relation(fields: [venueId], references: [id], onDelete: SetNull)
+
+  @@index([showId, updatedAt])
+  @@index([venueId])
+  @@unique([showId, name])
 }
 
 model SavedShow {

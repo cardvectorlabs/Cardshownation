@@ -27,6 +27,9 @@
     "paths": {
       "@/*": [
         "./*"
+      ],
+      "@floorplanner/*": [
+        "./floorplanner/*"
       ]
     },
     "target": "ES2017"

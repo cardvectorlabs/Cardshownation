@@ -15,14 +15,19 @@
     "@prisma/client": "5.22.0",
     "@vercel/blob": "^2.3.3",
     "clsx": "^2.1.1",
+    "immer": "^10.1.1",
+    "konva": "^9.3.20",
     "lucide-react": "^0.414.0",
     "nanoid": "^3.3.11",
     "next": "^15.5.15",
     "papaparse": "^5.5.3",
+    "pdfjs-dist": "^4.10.38",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-konva": "^18.2.10",
     "tailwind-merge": "^2.5.2",
-    "ws": "^8.20.0"
+    "ws": "^8.20.0",
+    "zustand": "^5.0.3"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
