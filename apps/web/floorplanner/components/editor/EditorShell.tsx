@@ -121,7 +121,7 @@ export default function EditorShell({
   }, [])
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-slate-100">
+    <div className="flex h-full w-full flex-col bg-slate-100">
       {!showMode && <Toolbar />}
       <div className="flex-1 overflow-hidden">
         <div className="flex h-full flex-row overflow-hidden">

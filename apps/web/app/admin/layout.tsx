@@ -61,7 +61,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      <main className="min-w-0 flex-1 bg-slate-50">{children}</main>
+      <main className="min-w-0 flex-1 bg-slate-50">
+        <div className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur md:px-6">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold text-slate-900">Admin Tools</p>
+              <p className="text-xs text-slate-500">Launch restricted internal apps from here.</p>
+            </div>
+            <Link
+              href="/admin/floorplanner"
+              className="inline-flex items-center rounded-lg bg-slate-950 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
+            >
+              Launch Floorplanner
+            </Link>
+          </div>
+        </div>
+        {children}
+      </main>
     </div>
   );
 }

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { getLatestShowFloorplan } from "@/lib/floorplans";
 import { requireAdminFloorplanAccess } from "@/lib/floorplan-auth";
-import { FloorplanEditorPage } from "@/app/promoter/shows/[showId]/floorplan/editor-page";
+import { FloorplanEditorPage } from "@/app/floorplanner/editor-page";
 
 export const metadata: Metadata = {
   title: "Admin Show Floorplanner",
