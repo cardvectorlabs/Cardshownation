@@ -7,7 +7,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useEffect, useRef, useState } from 'react'
-import { Layer, Image as KonvaImage } from 'react-konva'
+import { Layer, Image as KonvaImage } from 'react-konva/lib/ReactKonvaCore'
 import type { BackgroundImage, BackgroundImageId } from '@floorplanner/domain/types'
 
 interface Props {

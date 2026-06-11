@@ -1,7 +1,7 @@
 'use client'
 
 import React, { memo, useMemo } from 'react'
-import { Group, Line, Rect } from 'react-konva'
+import { Group, Line, Rect } from 'react-konva/lib/ReactKonvaCore'
 import type { CompositeRoom, Door, Point, RoomSegmentId } from '@floorplanner/domain/types'
 import { computeRoomContour } from '@floorplanner/domain/room-contour'
 

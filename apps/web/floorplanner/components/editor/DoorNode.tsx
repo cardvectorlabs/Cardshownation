@@ -11,7 +11,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { memo, useCallback, useState } from 'react'
-import { Group, Line, Rect, Shape } from 'react-konva'
+import { Group, Line, Rect, Shape } from 'react-konva/lib/ReactKonvaCore'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Door } from '@floorplanner/domain/types'
 import type { RoomBoundaryEdge } from '@floorplanner/domain/room-contour'

@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React from 'react'
-import { Rect } from 'react-konva'
+import { Rect } from 'react-konva/lib/ReactKonvaCore'
 
 interface SelectionState {
   startX:   number

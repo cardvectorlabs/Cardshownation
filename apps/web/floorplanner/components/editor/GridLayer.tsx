@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { memo } from 'react'
-import { Layer, Line, Rect } from 'react-konva'
+import { Layer, Line, Rect } from 'react-konva/lib/ReactKonvaCore'
 
 interface GridLayerProps {
   width:    number

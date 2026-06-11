@@ -4,7 +4,8 @@
 // KONVA CANVAS
 //
 // This file is the dynamic() boundary — it must be the first file in the tree
-// that imports from 'react-konva'. Never re-export from a server-rendered file.
+// that imports from 'react-konva/lib/ReactKonvaCore'. Never re-export from a
+// server-rendered file.
 //
 // Interaction model:
 //   - All mouse events are handled at the Stage level (not on individual nodes).
@@ -16,7 +17,17 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Stage, Layer, Rect, Line, Ellipse } from 'react-konva'
+import 'konva/lib/Stage'
+import 'konva/lib/Layer'
+import 'konva/lib/Group'
+import 'konva/lib/shapes/Rect'
+import 'konva/lib/shapes/Line'
+import 'konva/lib/shapes/Ellipse'
+import 'konva/lib/shapes/Image'
+import 'konva/lib/shapes/Text'
+import 'konva/lib/shapes/Transformer'
+import 'konva/lib/shapes/Label'
+import { Stage, Layer, Rect, Line, Ellipse } from 'react-konva/lib/ReactKonvaCore'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { Point, TableId, DoorId, DoorSide, DoorKind } from '@floorplanner/domain/types'

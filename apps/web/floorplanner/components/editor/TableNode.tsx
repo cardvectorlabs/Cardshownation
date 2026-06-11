@@ -1,7 +1,7 @@
 'use client'
 
 import React, { memo, useEffect, useRef } from 'react'
-import { Ellipse, Group, Line, Rect, Text } from 'react-konva'
+import { Ellipse, Group, Line, Rect, Text } from 'react-konva/lib/ReactKonvaCore'
 import type Konva from 'konva'
 import type { Point, TableObject } from '@floorplanner/domain/types'
 import type { WarningSeverity } from '@floorplanner/domain/warnings'

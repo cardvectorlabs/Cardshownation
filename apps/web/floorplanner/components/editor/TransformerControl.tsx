@@ -15,7 +15,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import React, { useRef, useEffect } from 'react'
-import { Transformer } from 'react-konva'
+import { Transformer } from 'react-konva/lib/ReactKonvaCore'
 import type Konva from 'konva'
 import type { KonvaEventObject } from 'konva/lib/Node'
 import type { TableObject, TableId } from '@floorplanner/domain/types'
