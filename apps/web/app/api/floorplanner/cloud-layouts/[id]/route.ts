@@ -6,7 +6,7 @@ import {
   isCloudSaveConfigured,
 } from "@floorplanner/lib/server/cloud-layout-store";
 import { authorizeCloudRequest, isCloudAuthConfigured } from "@floorplanner/lib/server/cloud-auth";
-import { getAdminSession } from "@/lib/admin-auth";
+import { getFloorplannerOperatorSession } from "@/lib/floorplanner-operator-auth";
 
 function unavailableResponse(message: string) {
   return NextResponse.json({ error: message }, { status: 503 });
@@ -28,7 +28,7 @@ export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await getAdminSession();
+  const session = await getFloorplannerOperatorSession();
   if (!session) {
     return unauthorizedResponse();
   }
@@ -55,7 +55,7 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ id: string }> },
 ) {
-  const session = await getAdminSession();
+  const session = await getFloorplannerOperatorSession();
   if (!session) {
     return unauthorizedResponse();
   }

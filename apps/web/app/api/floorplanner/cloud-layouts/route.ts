@@ -9,7 +9,7 @@ import {
   upsertCloudLayout,
 } from "@floorplanner/lib/server/cloud-layout-store";
 import { authorizeCloudRequest, isCloudAuthConfigured } from "@floorplanner/lib/server/cloud-auth";
-import { getAdminSession } from "@/lib/admin-auth";
+import { getFloorplannerOperatorSession } from "@/lib/floorplanner-operator-auth";
 
 function unavailableResponse(message: string) {
   return NextResponse.json({ error: message }, { status: 503 });
@@ -28,7 +28,7 @@ function isStandaloneCloudConfigured() {
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getFloorplannerOperatorSession();
   if (!session) {
     return unauthorizedResponse();
   }
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getFloorplannerOperatorSession();
   if (!session) {
     return unauthorizedResponse();
   }

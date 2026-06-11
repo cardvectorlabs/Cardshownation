@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ClipboardCheck, LayoutDashboard, LogOut } from "lucide-react";
+import { ClipboardCheck, LayoutDashboard, LogOut, Map } from "lucide-react";
 import { getModeratorSession } from "@/lib/moderator-auth";
 import { logoutModerator } from "@/app/moderator/actions";
 
@@ -8,6 +8,7 @@ export default async function ModeratorLayout({ children }: { children: React.Re
   const navItems = [
     { href: "/moderator", label: "Dashboard", icon: LayoutDashboard },
     { href: "/moderator/submissions", label: "Submissions", icon: ClipboardCheck },
+    { href: "/moderator/floorplanner", label: "Floorplanner", icon: Map },
   ];
 
   return (

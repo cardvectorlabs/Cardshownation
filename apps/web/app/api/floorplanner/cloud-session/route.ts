@@ -7,14 +7,14 @@ import {
   setCloudSessionCookie,
 } from "@floorplanner/lib/server/cloud-auth";
 import { isCloudSaveConfigured } from "@floorplanner/lib/server/cloud-layout-store";
-import { getAdminSession } from "@/lib/admin-auth";
+import { getFloorplannerOperatorSession } from "@/lib/floorplanner-operator-auth";
 
 function getAvailability() {
   return isCloudAuthConfigured() && isCloudSaveConfigured();
 }
 
 export async function GET(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getFloorplannerOperatorSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  const session = await getAdminSession();
+  const session = await getFloorplannerOperatorSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function DELETE() {
-  const session = await getAdminSession();
+  const session = await getFloorplannerOperatorSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized." }, { status: 401 });
   }
