@@ -24,7 +24,7 @@ export default async function AdminShowUploadPage() {
           Upload Shows From CSV
         </h1>
         <p className="mt-3 text-base leading-7 text-slate-600">
-          Import multiple approved show records in one pass using the admin CSV format.
+          Import multiple approved show records in one pass using the admin CSV format. Duplicate rows and existing matching shows will be skipped.
         </p>
       </div>
 

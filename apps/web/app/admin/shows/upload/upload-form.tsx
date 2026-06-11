@@ -35,7 +35,7 @@ export function UploadForm() {
       <form action={action} className="rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
         <h2 className="text-lg font-semibold text-slate-950">Bulk show upload</h2>
         <p className="mt-2 text-sm leading-6 text-slate-600">
-          Upload a CSV with one row per show. Rows missing required values will be skipped and listed below.
+          Upload a CSV with one row per show. Rows missing required values, duplicate rows, and existing matching shows will be skipped and listed below.
         </p>
 
         <div className="mt-6">

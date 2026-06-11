@@ -67,6 +67,24 @@ function parseBool(val: string): boolean {
   return ["true", "yes", "1"].includes(val.trim().toLowerCase());
 }
 
+function normalizeDuplicateToken(value: string): string {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function buildShowDuplicateKey(input: {
+  title: string;
+  city: string;
+  state: string;
+  startDate: Date;
+}): string {
+  return [
+    normalizeDuplicateToken(input.title),
+    input.startDate.toISOString().slice(0, 10),
+    normalizeDuplicateToken(input.city),
+    input.state.trim().toUpperCase(),
+  ].join("|");
+}
+
 type ParsedRow = {
   rowNum: number;
   slug: string;
@@ -180,8 +198,31 @@ export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
     }
   }
 
+  const dedupedParsed: IntermediateRow[] = [];
+  const seenDuplicateKeys = new Set<string>();
+
+  for (const row of parsed) {
+    const duplicateKey = buildShowDuplicateKey({
+      title: row.data.title,
+      city: row.data.city,
+      state: row.data.state,
+      startDate: row.data.startDate,
+    });
+
+    if (seenDuplicateKeys.has(duplicateKey)) {
+      errors.push({
+        row: row.rowNum,
+        message: "Duplicate row in this CSV import (same title, start date, city, and state).",
+      });
+      continue;
+    }
+
+    seenDuplicateKeys.add(duplicateKey);
+    dedupedParsed.push(row);
+  }
+
   // 2. Batch-fetch all needed venues in one query
-  const uniqueVenueKeys = [...new Set(parsed.map((r) => r.venueKey).filter(Boolean))] as string[];
+  const uniqueVenueKeys = [...new Set(dedupedParsed.map((r) => r.venueKey).filter(Boolean))] as string[];
   const venueKeyMap = new Map<string, string>(); // venueKey -> venueId
 
   if (uniqueVenueKeys.length > 0) {
@@ -234,8 +275,55 @@ export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
     }
   }
 
+  const importStates = [...new Set(dedupedParsed.map((row) => row.data.state))];
+  const importStartDates = dedupedParsed.map((row) => row.data.startDate.getTime());
+  const existingDuplicateKeys = new Set<string>();
+
+  if (importStates.length > 0 && importStartDates.length > 0) {
+    const minStartDate = new Date(Math.min(...importStartDates));
+    const maxStartDate = new Date(Math.max(...importStartDates));
+    const existingShows = await db.show.findMany({
+      where: {
+        state: { in: importStates },
+        startDate: {
+          gte: minStartDate,
+          lte: maxStartDate,
+        },
+      },
+      select: {
+        title: true,
+        city: true,
+        state: true,
+        startDate: true,
+      },
+    });
+
+    for (const show of existingShows) {
+      existingDuplicateKeys.add(buildShowDuplicateKey(show));
+    }
+  }
+
+  const importableParsed = dedupedParsed.filter((row) => {
+    const duplicateKey = buildShowDuplicateKey({
+      title: row.data.title,
+      city: row.data.city,
+      state: row.data.state,
+      startDate: row.data.startDate,
+    });
+
+    if (existingDuplicateKeys.has(duplicateKey)) {
+      errors.push({
+        row: row.rowNum,
+        message: "Duplicate of an existing show (same title, start date, city, and state).",
+      });
+      return false;
+    }
+
+    return true;
+  });
+
   // 3. Batch-fetch existing shows by slug
-  const allSlugs = parsed.map((r) => r.slug);
+  const allSlugs = importableParsed.map((r) => r.slug);
   const existingSlugs = new Set(
     (await db.show.findMany({ where: { slug: { in: allSlugs } }, select: { slug: true } }))
       .map((s: { slug: string }) => s.slug)
@@ -245,7 +333,7 @@ export async function importShows(rows: ImportRow[]): Promise<ImportResult> {
   const toCreate: any[] = [];
   const toUpdate: { slug: string; data: any }[] = [];
 
-  for (const row of parsed) {
+  for (const row of importableParsed) {
     const venueId = row.venueKey ? (venueKeyMap.get(row.venueKey) ?? null) : null;
     const { venueKey: _vk, ...dataWithoutVenueKey } = row.data;
     const finalData = { ...dataWithoutVenueKey, venueId };

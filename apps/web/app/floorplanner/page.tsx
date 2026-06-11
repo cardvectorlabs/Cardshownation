@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Grid3X3, Ruler, Store } from "lucide-react";
+import { getPromoterSession } from "@/lib/promoter-auth";
 
 export const metadata: Metadata = {
   title: "Floorplanner",
   description:
-    "Card Show Nation Floorplanner helps teams design vendor-ready floor plans for card shows with a purpose-built layout workflow.",
+    "Open the browser-based Floorplanner workspace for Card Show Nation show layouts.",
 };
 
 const featureCards = [
@@ -26,37 +27,44 @@ const featureCards = [
   },
 ];
 
-export default function FloorplannerLandingPage() {
+export const dynamic = "force-dynamic";
+
+export default async function FloorplannerLandingPage() {
+  const promoterSession = await getPromoterSession();
+  const promoterHref = promoterSession ? "/promoter" : "/promoter/login";
+  const promoterLabel = promoterSession ? "Open promoter workspace" : "Promoter login";
+
   return (
     <div className="bg-slate-50">
       <section className="border-b border-slate-200 bg-white">
         <div className="container-wide py-14 sm:py-20">
           <div className="max-w-3xl">
             <p className="text-xs font-semibold uppercase tracking-[0.24em] text-brand-700">
-              Card Show Nation Tool
+              Browser App
             </p>
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-slate-950 sm:text-5xl">
               Floorplanner for card shows.
             </h1>
             <p className="mt-5 max-w-2xl text-base leading-7 text-slate-600 sm:text-lg">
-              A dedicated floor planning app for designing vendor layouts, table maps,
-              and event-ready show floors inside the Card Show Nation ecosystem.
+              Floorplanner is the browser workspace for building vendor layouts,
+              table maps, and event-ready show floors. Sign in to open your show
+              workspace instead of using a generic brochure page.
             </p>
           </div>
 
           <div className="mt-8 flex flex-col gap-3 sm:flex-row">
             <Link
-              href="/submit-show"
+              href={promoterHref}
               className="inline-flex items-center justify-center gap-2 rounded-2xl bg-slate-950 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-slate-800"
             >
-              Get your show listed
+              {promoterLabel}
               <ArrowRight className="h-4 w-4" />
             </Link>
             <Link
-              href="/card-shows"
+              href="/admin/floorplanner"
               className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:border-brand-200 hover:bg-brand-50 hover:text-brand-800"
             >
-              Browse live shows
+              Admin workspace
             </Link>
           </div>
         </div>
@@ -82,11 +90,11 @@ export default function FloorplannerLandingPage() {
       <section className="container-wide pb-14">
         <div className="rounded-[2rem] bg-slate-950 px-6 py-8 text-white sm:px-8">
           <div className="max-w-3xl">
-            <h2 className="text-2xl font-semibold">A real product slot on the website.</h2>
+            <h2 className="text-2xl font-semibold">Open the app, then open a show.</h2>
             <p className="mt-3 text-sm leading-6 text-slate-300 sm:text-base">
-              Floorplanner now has a public-facing destination on Card Show Nation
-              for product visibility and future marketing, while the working editor
-              remains protected behind the existing admin workflow.
+              Promoters manage their own show floorplans from the browser-based
+              workspace, and admins can still reach the same editor from the
+              back office when they need oversight or support.
             </p>
           </div>
         </div>

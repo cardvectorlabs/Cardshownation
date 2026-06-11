@@ -273,7 +273,7 @@ export function ImportClient() {
                 Preview — {rows.length} row{rows.length === 1 ? "" : "s"}
               </h2>
               <p className="text-sm text-slate-500">
-                Existing shows (matched by slug) will be updated.
+                Duplicate rows and existing matching shows will be skipped.
               </p>
             </div>
             <button

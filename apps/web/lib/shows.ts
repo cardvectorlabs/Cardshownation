@@ -148,6 +148,24 @@ function parseDateInput(value: string | null) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function normalizeDuplicateToken(value: string) {
+  return value.trim().toLowerCase().replace(/[^a-z0-9]+/g, "");
+}
+
+function buildShowDuplicateKey(input: {
+  title: string;
+  city: string;
+  state: string;
+  startDate: Date;
+}) {
+  return [
+    normalizeDuplicateToken(input.title),
+    input.startDate.toISOString().slice(0, 10),
+    normalizeDuplicateToken(input.city),
+    input.state.trim().toUpperCase(),
+  ].join("|");
+}
+
 const showCardSelect = {
   id: true,
   title: true,
@@ -829,9 +847,68 @@ export async function bulkCreateShows(
     });
   }
 
-  const preparedRows: typeof validRows = [];
+  const uniqueRows: typeof validRows = [];
+  const seenDuplicateKeys = new Set<string>();
 
   for (const row of validRows) {
+    const duplicateKey = buildShowDuplicateKey(row);
+    if (seenDuplicateKeys.has(duplicateKey)) {
+      errors.push({
+        row: row.rowNumber,
+        message: "Duplicate row in this CSV import (same title, start date, city, and state).",
+      });
+      continue;
+    }
+
+    seenDuplicateKeys.add(duplicateKey);
+    uniqueRows.push(row);
+  }
+
+  const importStates = [...new Set(uniqueRows.map((row) => row.state))];
+  const importStartDates = uniqueRows.map((row) => row.startDate.getTime());
+  const existingDuplicateKeys = new Set<string>();
+
+  if (importStates.length > 0 && importStartDates.length > 0) {
+    const minStartDate = new Date(Math.min(...importStartDates));
+    const maxStartDate = new Date(Math.max(...importStartDates));
+    const existingShows = await db.show.findMany({
+      where: {
+        state: { in: importStates },
+        startDate: {
+          gte: minStartDate,
+          lte: maxStartDate,
+        },
+      },
+      select: {
+        title: true,
+        city: true,
+        state: true,
+        startDate: true,
+      },
+    });
+
+    for (const show of existingShows) {
+      existingDuplicateKeys.add(buildShowDuplicateKey(show));
+    }
+  }
+
+  const rowsToPrepare: typeof validRows = [];
+
+  for (const row of uniqueRows) {
+    if (existingDuplicateKeys.has(buildShowDuplicateKey(row))) {
+      errors.push({
+        row: row.rowNumber,
+        message: "Duplicate of an existing show (same title, start date, city, and state).",
+      });
+      continue;
+    }
+
+    rowsToPrepare.push(row);
+  }
+
+  const preparedRows: typeof validRows = [];
+
+  for (const row of rowsToPrepare) {
     try {
       preparedRows.push({
         ...row,
@@ -930,7 +1007,7 @@ export async function bulkCreateShows(
     action: "shows.bulk_imported",
     targetType: "Show",
     details: {
-      created: validRows.length,
+      created: preparedRows.length,
       skipped: errors.length,
       rows: rows.length,
     },

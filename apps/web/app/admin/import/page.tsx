@@ -12,7 +12,7 @@ export default async function AdminImportPage() {
         <h1 className="text-2xl font-bold text-slate-900">Import Shows</h1>
         <p className="mt-1 text-sm text-slate-500">
           Bulk-import shows from a CSV file. Download the template to see the
-          expected format. Existing shows matched by slug will be updated.
+          expected format. Duplicate rows and existing matching shows will be skipped.
         </p>
       </div>
       <ImportClient />
