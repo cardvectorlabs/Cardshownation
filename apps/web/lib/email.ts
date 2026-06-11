@@ -11,6 +11,21 @@ function getResend() {
 
 const FROM_ADDRESS = "Card Show Nation <noreply@cardshownation.com>";
 
+async function sendEmail(input: Parameters<Resend["emails"]["send"]>[0]) {
+  const resend = getResend();
+  const result = await resend.emails.send(input);
+
+  if (result.error) {
+    throw new Error(`Email send failed: ${result.error.message}`);
+  }
+
+  if (!result.data?.id) {
+    throw new Error("Email send failed: provider did not return a message id.");
+  }
+
+  return result.data;
+}
+
 function getResetAudienceLabel(role: UserRole) {
   switch (role) {
     case "MODERATOR":
@@ -23,9 +38,8 @@ function getResetAudienceLabel(role: UserRole) {
 }
 
 export async function sendPasswordResetEmail(to: string, resetUrl: string, role: UserRole) {
-  const resend = getResend();
   const audienceLabel = getResetAudienceLabel(role);
-  await resend.emails.send({
+  await sendEmail({
     from: FROM_ADDRESS,
     to,
     subject: "Reset your Card Show Nation password",
@@ -58,8 +72,7 @@ export async function sendPromoterPasswordResetEmail(to: string, resetUrl: strin
 }
 
 export async function sendFanVerificationEmail(to: string, verifyUrl: string) {
-  const resend = getResend();
-  await resend.emails.send({
+  await sendEmail({
     from: FROM_ADDRESS,
     to,
     subject: "Verify your Card Show Nation account",
@@ -87,8 +100,7 @@ export async function sendFanVerificationEmail(to: string, verifyUrl: string) {
 }
 
 export async function sendModeratorVerificationEmail(to: string, verifyUrl: string) {
-  const resend = getResend();
-  await resend.emails.send({
+  await sendEmail({
     from: FROM_ADDRESS,
     to,
     subject: "Verify your Card Show Nation moderator account",
@@ -119,8 +131,7 @@ export async function sendPromoterVerificationEmail(
   to: string,
   verifyUrl: string
 ) {
-  const resend = getResend();
-  await resend.emails.send({
+  await sendEmail({
     from: FROM_ADDRESS,
     to,
     subject: "Verify your Card Show Nation promoter account",
