@@ -5,7 +5,9 @@ import { US_STATES } from "@/lib/states";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { rethrowIfRedirectError } from "@/lib/next-control-flow";
-import { getUserSession, getUserSessionSecret, startUserSession } from "@/lib/user-auth";
+import { getUserSession, getUserSessionSecret } from "@/lib/user-auth";
+import { createVerificationToken } from "@/lib/verification-token";
+import { sendFanVerificationEmail } from "@/lib/email";
 import { registerFanAccount } from "@/lib/users";
 
 const SIGNUP_WINDOW_MS = 60 * 60 * 1000;
@@ -75,8 +77,11 @@ async function handleSignup(formData: FormData) {
       stateCodes,
     });
     resetRateLimit("user-signup", ip);
-    await startUserSession(user.id);
-    redirect("/account");
+    const token = await createVerificationToken(user.id);
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://cardshownation.com";
+    const verifyUrl = `${appUrl}/account/verify?token=${token}`;
+    await sendFanVerificationEmail(email, verifyUrl);
+    redirect("/account/signup?sent=1");
   } catch (error) {
     rethrowIfRedirectError(error);
     await delay(750);
@@ -87,7 +92,7 @@ async function handleSignup(formData: FormData) {
 export default async function UserSignupPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; sent?: string }>;
 }) {
   const [session, secret, sp] = await Promise.all([
     getUserSession(),
@@ -96,6 +101,32 @@ export default async function UserSignupPage({
   ]);
   if (session) {
     redirect("/account");
+  }
+
+  if (sp.sent === "1") {
+    return (
+      <div className="container-wide py-6 sm:py-10">
+        <div className="mx-auto max-w-4xl rounded-[2rem] border border-slate-200 bg-white p-6 shadow-sm sm:p-8">
+          <p className="text-sm font-semibold uppercase tracking-[0.2em] text-brand-700">
+            Check your inbox
+          </p>
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">
+            Verify your email
+          </h1>
+          <p className="mt-4 max-w-2xl text-base leading-7 text-slate-600">
+            We sent a verification link to your email address. Click the link to activate your
+            member account. The link expires in 24 hours.
+          </p>
+          <p className="mt-4 text-sm text-slate-500">
+            Didn&apos;t get it? Check your spam folder or{" "}
+            <Link href="/account/signup" className="font-semibold text-brand-700 hover:text-brand-800">
+              try again
+            </Link>
+            .
+          </p>
+        </div>
+      </div>
+    );
   }
 
   const errorMessage =
