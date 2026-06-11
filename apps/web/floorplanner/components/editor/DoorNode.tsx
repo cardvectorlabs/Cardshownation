@@ -272,11 +272,25 @@ const DoorNode = memo(function DoorNode({ door, edge, isSelected, gridSize, unit
               const pw = tw + PILL_PAD_X * 2
               const ph = FONT_SIZE + PILL_PAD_Y * 2
               const rx = pw / 2
+              const left = cx - pw / 2
+              const top = cy - ph / 2
+              const right = left + pw
+              const bottom = top + ph
+              const radius = Math.min(rx, ph / 2)
 
               // Pill background
               ctx.fillStyle = 'rgba(15,23,42,0.82)'
               ctx.beginPath()
-              ctx.roundRect(cx - pw / 2, cy - ph / 2, pw, ph, rx)
+              ctx.moveTo(left + radius, top)
+              ctx.lineTo(right - radius, top)
+              ctx.arcTo(right, top, right, top + radius, radius)
+              ctx.lineTo(right, bottom - radius)
+              ctx.arcTo(right, bottom, right - radius, bottom, radius)
+              ctx.lineTo(left + radius, bottom)
+              ctx.arcTo(left, bottom, left, bottom - radius, radius)
+              ctx.lineTo(left, top + radius)
+              ctx.arcTo(left, top, left + radius, top, radius)
+              ctx.closePath()
               ctx.fill()
 
               // Text
