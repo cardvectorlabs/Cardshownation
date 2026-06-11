@@ -5,7 +5,7 @@ const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 const LOGIN_PATH = "/admin/login";
 const SETUP_PATH = "/admin/setup";
 
-export async function proxy(req: NextRequest) {
+export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   if (
