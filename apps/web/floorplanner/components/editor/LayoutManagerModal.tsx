@@ -26,6 +26,7 @@ import {
 
 interface Props {
   onClose: () => void
+  initialView?: 'browser' | 'cloud'
 }
 
 function formatSavedAt(savedAt: string): string {
@@ -34,11 +35,12 @@ function formatSavedAt(savedAt: string): string {
   return d.toISOString().slice(0, 10)
 }
 
-export default function LayoutManagerModal({ onClose }: Props) {
+export default function LayoutManagerModal({ onClose, initialView = 'browser' }: Props) {
   const saveAs = useEditorStore(s => s.saveCurrentLayoutAs)
   const switchTo = useEditorStore(s => s.switchToLayout)
   const loadDocumentSlice = useEditorStore(s => s.loadDocumentSlice)
   const setActiveCloudLayout = useEditorStore(s => s.setActiveCloudLayout)
+  const title = useEditorStore(s => s.settings.eventName)
   const activeCloudLayoutId = useEditorStore(s => s.activeCloudLayoutId)
   const activeCloudLayoutName = useEditorStore(s => s.activeCloudLayoutName)
   const activeCloudLayoutRevision = useEditorStore(s => s.activeCloudLayoutRevision)
@@ -58,6 +60,7 @@ export default function LayoutManagerModal({ onClose }: Props) {
   const [cloudLoading, setCloudLoading] = useState(false)
   const [cloudAvailable, setCloudAvailable] = useState(false)
   const [cloudAuthenticated, setCloudAuthenticated] = useState(false)
+  const [activeView, setActiveView] = useState<'browser' | 'cloud'>(initialView)
 
   function refresh() {
     setLayouts(listLayouts())
@@ -141,7 +144,7 @@ export default function LayoutManagerModal({ onClose }: Props) {
   }
 
   function handleSaveNew() {
-    const name = newName.trim()
+    const name = newName.trim() || title.trim() || 'Floor Plan'
     if (!name) return
     saveAs(name)
     setNewName('')
@@ -186,7 +189,12 @@ export default function LayoutManagerModal({ onClose }: Props) {
   }
 
   async function handleCloudSave() {
-    const name = cloudName.trim() || activeCloudLayoutName || newName.trim() || 'Floor Plan'
+    const name =
+      cloudName.trim() ||
+      title.trim() ||
+      activeCloudLayoutName ||
+      newName.trim() ||
+      'Floor Plan'
     if (!cloudAuthenticated) {
       setCloudError('Sign in to cloud save first.')
       return
@@ -272,12 +280,40 @@ export default function LayoutManagerModal({ onClose }: Props) {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-700">
-          <h2 className="text-white font-semibold text-base">Saved Layouts</h2>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setActiveView('browser')}
+              className={[
+                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                activeView === 'browser'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700',
+              ].join(' ')}
+            >
+              Browser Layouts
+            </button>
+            <button
+              onClick={() => setActiveView('cloud')}
+              className={[
+                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                activeView === 'cloud'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-gray-800 text-gray-300 hover:bg-gray-700',
+              ].join(' ')}
+            >
+              Cloud Layouts
+            </button>
+          </div>
           <button onClick={onClose} className="text-gray-400 hover:text-white text-xl leading-none">&times;</button>
         </div>
 
         <div className="grid flex-1 min-h-0 grid-cols-1 lg:grid-cols-2">
-          <div className="flex min-h-0 flex-col border-b border-gray-700 lg:border-b-0 lg:border-r lg:border-gray-700">
+          <div
+            className={[
+              'flex min-h-0 flex-col border-gray-700',
+              activeView === 'cloud' ? 'hidden lg:flex' : 'border-b lg:border-b-0 lg:border-r',
+            ].join(' ')}
+          >
             <div className="border-b border-gray-800 px-5 py-3">
               <h3 className="text-sm font-semibold text-white">Browser Saves</h3>
               <p className="mt-1 text-xs text-gray-400">Stored only in this browser profile.</p>
@@ -364,7 +400,7 @@ export default function LayoutManagerModal({ onClose }: Props) {
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-col">
+          <div className={[ 'flex min-h-0 flex-col', activeView === 'browser' ? 'hidden lg:flex' : '' ].join(' ')}>
             <div className="border-b border-gray-800 px-5 py-3">
               <h3 className="text-sm font-semibold text-white">Cloud Saves</h3>
               <p className="mt-1 text-xs text-gray-400">Stored in Neon and available outside this browser.</p>
@@ -418,7 +454,13 @@ export default function LayoutManagerModal({ onClose }: Props) {
                     <input
                       value={cloudName}
                       onChange={e => setCloudName(e.target.value)}
-                      placeholder={activeCloudLayoutName ? `Current: ${activeCloudLayoutName}` : 'Cloud layout name...'}
+                      placeholder={
+                        activeCloudLayoutName
+                          ? `Current: ${activeCloudLayoutName}`
+                          : title.trim()
+                            ? `Use title: ${title.trim()}`
+                            : 'Cloud layout name...'
+                      }
                       className="flex-1 bg-gray-800 border border-gray-600 text-gray-200 text-sm rounded px-3 py-1.5 focus:outline-none focus:border-blue-500"
                     />
                     <button
@@ -500,7 +542,7 @@ export default function LayoutManagerModal({ onClose }: Props) {
                 if (e.key === 'Enter') handleSaveNew()
                 e.stopPropagation()
               }}
-              placeholder="New browser layout name..."
+              placeholder={title.trim() ? `Use title: ${title.trim()}` : 'New browser layout name...'}
               className="flex-1 bg-gray-800 border border-gray-600 text-gray-200 text-sm rounded px-3 py-1.5 focus:outline-none focus:border-blue-500"
             />
             <button

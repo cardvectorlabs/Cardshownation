@@ -734,7 +734,8 @@ export const useEditorStore = create<EditorState>()(
     saveLayoutToFile() {
       const state = get()
       const slice = extractDocumentSlice(state)
-      const manifest = typeof window !== 'undefined'
+      const title = state.settings.eventName?.trim()
+      const fallbackName = typeof window !== 'undefined'
         ? ((): string => {
             try {
               const raw = localStorage.getItem(`floorplanner:${getFloorplannerStorageNamespace()}:manifest`)
@@ -747,7 +748,7 @@ export const useEditorStore = create<EditorState>()(
             return 'floorplan'
           })()
         : 'floorplan'
-      saveToFileLib(slice, manifest)
+      saveToFileLib(slice, title || fallbackName)
     },
 
     async loadLayoutFromFile(file) {

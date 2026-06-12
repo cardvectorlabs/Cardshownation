@@ -18,6 +18,7 @@ function useMenuItems(
   openImport: () => void,
   openExport: () => void,
   openLayouts: () => void,
+  openCloudLayouts: () => void,
   openFilePicker: () => void,
   openHelp: () => void,
 ): Record<string, MenuItem[]> {
@@ -45,7 +46,9 @@ function useMenuItems(
           }
         },
       },
-      { label: 'Saved Layouts...', action: openLayouts },
+      { label: 'Open Browser Layouts...', action: openLayouts },
+      { label: 'Open Cloud Layouts...', action: openCloudLayouts },
+      { label: 'Manage Layouts...', action: openLayouts },
       { label: 'Save to File...', shortcut: 'Ctrl+S', action: () => saveToFile() },
       { label: 'Open File...', action: openFilePicker },
       { label: 'Import Vendors...', action: openImport },
@@ -102,10 +105,13 @@ export default function Toolbar() {
   const redo = useEditorStore(s => s.redo)
   const loadFromFile = useEditorStore(s => s.loadLayoutFromFile)
   const setShowMode = useEditorStore(s => s.setShowMode)
+  const settings = useEditorStore(s => s.settings)
+  const dispatch = useEditorStore(s => s.dispatch)
 
   const [showImport, setShowImport] = useState(false)
   const [showExport, setShowExport] = useState(false)
   const [showLayouts, setShowLayouts] = useState(false)
+  const [layoutView, setLayoutView] = useState<'browser' | 'cloud'>('browser')
   const [showHelp, setShowHelp] = useState(false)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
@@ -122,10 +128,20 @@ export default function Toolbar() {
   const menus = useMenuItems(
     () => { setShowImport(true); setOpenMenu(null) },
     () => { setShowExport(true); setOpenMenu(null) },
-    () => { setShowLayouts(true); setOpenMenu(null) },
+    () => { setLayoutView('browser'); setShowLayouts(true); setOpenMenu(null) },
+    () => { setLayoutView('cloud'); setShowLayouts(true); setOpenMenu(null) },
     () => { setOpenMenu(null); fileInputRef.current?.click() },
     () => { setShowHelp(true); setOpenMenu(null) },
   )
+
+  const updateTitle = useCallback((value: string) => {
+    dispatch({
+      type: 'UPDATE_SETTINGS',
+      prev: { eventName: settings.eventName },
+      next: { eventName: value },
+      timestamp: Date.now(),
+    })
+  }, [dispatch, settings.eventName])
 
   function toggleMenu(name: string) {
     setOpenMenu(prev => prev === name ? null : name)
@@ -154,6 +170,19 @@ export default function Toolbar() {
         ))}
 
         <div className="flex-1" />
+
+        <div className="flex min-w-[280px] items-center gap-2 px-3">
+          <label className="shrink-0 text-xs font-medium uppercase tracking-wide text-slate-500">
+            Title
+          </label>
+          <input
+            type="text"
+            value={settings.eventName}
+            onChange={e => updateTitle(e.target.value)}
+            placeholder="Floor Plan"
+            className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 focus:border-blue-500 focus:outline-none"
+          />
+        </div>
 
         <button
           onClick={() => setShowMode(true)}
@@ -219,7 +248,7 @@ export default function Toolbar() {
 
       {showImport && <ImportModal onClose={() => setShowImport(false)} />}
       {showExport && <ExportModal onClose={() => setShowExport(false)} />}
-      {showLayouts && <LayoutManagerModal onClose={() => setShowLayouts(false)} />}
+      {showLayouts && <LayoutManagerModal initialView={layoutView} onClose={() => setShowLayouts(false)} />}
       {showHelp && <HelpCheatSheetModal onClose={() => setShowHelp(false)} />}
 
       <input
