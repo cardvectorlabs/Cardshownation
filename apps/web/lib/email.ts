@@ -1,6 +1,8 @@
 import { Resend } from "resend";
 import type { UserRole } from "@csn/db";
 
+const DEFAULT_FROM_ADDRESS = "Card Show Nation <onboarding@resend.dev>";
+
 function getResend() {
   const apiKey = process.env.RESEND_API_KEY?.trim();
   if (!apiKey) {
@@ -9,14 +11,20 @@ function getResend() {
   return new Resend(apiKey);
 }
 
-const FROM_ADDRESS = "Card Show Nation <noreply@cardshownation.com>";
+export function getFromAddress() {
+  return (
+    process.env.RESEND_FROM_EMAIL?.trim() ||
+    process.env.RESEND_FROM_ADDRESS?.trim() ||
+    DEFAULT_FROM_ADDRESS
+  );
+}
 
 async function sendEmail(input: Parameters<Resend["emails"]["send"]>[0]) {
   const resend = getResend();
   const result = await resend.emails.send(input);
 
   if (result.error) {
-    throw new Error(`Email send failed: ${result.error.message}`);
+    throw new Error(`Email send failed for ${input.to}: ${result.error.message}`);
   }
 
   if (!result.data?.id) {
@@ -40,7 +48,7 @@ function getResetAudienceLabel(role: UserRole) {
 export async function sendPasswordResetEmail(to: string, resetUrl: string, role: UserRole) {
   const audienceLabel = getResetAudienceLabel(role);
   await sendEmail({
-    from: FROM_ADDRESS,
+    from: getFromAddress(),
     to,
     subject: "Reset your Card Show Nation password",
     html: `
@@ -73,7 +81,7 @@ export async function sendPromoterPasswordResetEmail(to: string, resetUrl: strin
 
 export async function sendFanVerificationEmail(to: string, verifyUrl: string) {
   await sendEmail({
-    from: FROM_ADDRESS,
+    from: getFromAddress(),
     to,
     subject: "Verify your Card Show Nation account",
     html: `
@@ -101,7 +109,7 @@ export async function sendFanVerificationEmail(to: string, verifyUrl: string) {
 
 export async function sendModeratorVerificationEmail(to: string, verifyUrl: string) {
   await sendEmail({
-    from: FROM_ADDRESS,
+    from: getFromAddress(),
     to,
     subject: "Verify your Card Show Nation moderator account",
     html: `
@@ -132,7 +140,7 @@ export async function sendPromoterVerificationEmail(
   verifyUrl: string
 ) {
   await sendEmail({
-    from: FROM_ADDRESS,
+    from: getFromAddress(),
     to,
     subject: "Verify your Card Show Nation promoter account",
     html: `
