@@ -48,6 +48,7 @@ model User {
   city              String?
   state             String?
   passwordHash      String?
+  sessionVersion    Int        @default(1)
   role              UserRole   @default(FAN)
   emailVerifiedAt   DateTime?
   createdAt         DateTime   @default(now())

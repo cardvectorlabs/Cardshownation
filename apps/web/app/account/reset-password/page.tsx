@@ -3,7 +3,6 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { consumePasswordResetToken } from "@/lib/password-reset-token";
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, readPasswordInput } from "@/lib/passwords";
-import { startUserSession } from "@/lib/user-auth";
 
 async function handleReset(token: string, formData: FormData) {
   "use server";
@@ -23,11 +22,16 @@ async function handleReset(token: string, formData: FormData) {
   const passwordHash = await hashPassword(password);
   await db.user.update({
     where: { id: user.id },
-    data: { passwordHash, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
+    data: {
+      passwordHash,
+      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+      sessionVersion: {
+        increment: 1,
+      },
+    },
   });
 
-  await startUserSession(user.id);
-  redirect("/account");
+  redirect("/account/login?reset=1");
 }
 
 export default async function AccountResetPasswordPage({

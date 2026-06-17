@@ -474,6 +474,9 @@ export async function updateFanProfile(input: UpdateFanProfileInput) {
       data: {
         email,
         emailVerifiedAt: null,
+        sessionVersion: {
+          increment: 1,
+        },
       },
     });
 

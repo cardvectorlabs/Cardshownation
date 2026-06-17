@@ -7,6 +7,7 @@ type UserSessionPayload = {
   aud: string;
   exp: number;
   iat: number;
+  sv: number;
   uid: string;
   v: number;
 };
@@ -55,6 +56,7 @@ function decodePayload(segment: string) {
       typeof parsed.uid !== "string" ||
       typeof parsed.exp !== "number" ||
       typeof parsed.iat !== "number" ||
+      typeof parsed.sv !== "number" ||
       parsed.v !== 1
     ) {
       return null;
@@ -74,6 +76,7 @@ async function signPayload(payloadSegment: string, secret: string) {
 
 export async function createUserSessionToken(
   userId: string,
+  sessionVersion: number,
   secret: string,
   maxAgeSeconds = USER_SESSION_MAX_AGE_SECONDS
 ) {
@@ -82,6 +85,7 @@ export async function createUserSessionToken(
     aud: SESSION_AUDIENCE,
     exp: now + maxAgeSeconds,
     iat: now,
+    sv: sessionVersion,
     uid: userId,
     v: 1,
   };

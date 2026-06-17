@@ -355,6 +355,16 @@ test("updateFanProfile changes email, stores a verification token, and sends ver
   assert.equal(createTokenCalls.length, 1);
   assert.equal(createTokenCalls[0]?.data.userId, "fan-1");
   assert.equal(typeof createTokenCalls[0]?.data.token, "string");
+  assert.deepEqual(updateUserCalls[1], {
+    where: { id: "fan-1" },
+    data: {
+      email: "new@example.com",
+      emailVerifiedAt: null,
+      sessionVersion: {
+        increment: 1,
+      },
+    },
+  });
   assert.equal(sentEmails[0]?.from, "Card Show Nation <noreply@cardshownation.com>");
   assert.equal(sentEmails[0]?.to, "new@example.com");
   assert.deepEqual(result, { emailChanged: true });

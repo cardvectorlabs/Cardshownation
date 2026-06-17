@@ -77,7 +77,7 @@ async function handleLogin(formData: FormData) {
 export default async function UserLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; from?: string }>;
+  searchParams: Promise<{ error?: string; from?: string; reset?: string; verify?: string }>;
 }) {
   const [session, secret, secretStatus, sp] = await Promise.all([
     getUserSession(),
@@ -90,6 +90,12 @@ export default async function UserLoginPage({
   }
 
   const from = sanitizeUserRedirectTarget(sp.from);
+  const successMessage =
+    sp.reset === "1"
+      ? "Password updated. Log in with your new password."
+      : sp.verify === "1"
+        ? "Profile saved. Check your new email inbox, verify it, then log in again."
+        : null;
   const errorMessage =
     sp.error === "disabled"
       ? secretStatus.error === "too_short"
@@ -127,6 +133,12 @@ export default async function UserLoginPage({
         {errorMessage && (
           <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMessage}
+          </p>
+        )}
+
+        {successMessage && (
+          <p className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {successMessage}
           </p>
         )}
 

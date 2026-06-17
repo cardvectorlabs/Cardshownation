@@ -46,7 +46,12 @@ export async function getUserSession() {
     },
   });
 
-  if (!user || user.role !== "FAN") {
+  if (
+    !user ||
+    user.role !== "FAN" ||
+    !user.emailVerifiedAt ||
+    payload.sv !== user.sessionVersion
+  ) {
     return null;
   }
 
@@ -68,7 +73,18 @@ export async function startUserSession(userId: string) {
     throw new Error("User accounts are not configured.");
   }
 
-  const token = await createUserSessionToken(userId, secret);
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      sessionVersion: true,
+    },
+  });
+  if (!user || user.role !== "FAN") {
+    throw new Error("Member account not found.");
+  }
+
+  const token = await createUserSessionToken(userId, user.sessionVersion, secret);
   const cookieStore = await cookies();
   cookieStore.set(USER_COOKIE_NAME, token, {
     httpOnly: true,

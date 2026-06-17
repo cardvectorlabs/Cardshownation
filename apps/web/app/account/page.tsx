@@ -17,6 +17,7 @@ import {
   updateFanProfile,
   updateFanStateSubscriptions,
 } from "@/lib/users";
+import { endUserSession } from "@/lib/user-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,12 @@ async function saveProfile(formData: FormData) {
       state: readOptionalString(formData, "state", 2),
     });
 
-    redirect(result.emailChanged ? "/account?profile=verify" : "/account?profile=1");
+    if (result.emailChanged) {
+      await endUserSession();
+      redirect("/account/login?verify=1");
+    }
+
+    redirect("/account?profile=1");
   } catch (error) {
     rethrowIfRedirectError(error);
     const message = error instanceof Error ? error.message : "We couldn't update your profile right now.";
