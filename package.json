@@ -21,6 +21,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@types/react-dom": "19.2.2",
     "konva": "8.4.3",
     "react": "19.2.0",
     "react-dom": "19.2.0",
@@ -36,6 +37,8 @@
     "@typescript-eslint/utils": "7.18.0",
     "react": "19.2.0",
     "react-dom": "19.2.0",
+    "@types/react": "19.2.2",
+    "@types/react-dom": "19.2.2",
     "next": {
       "postcss": "8.5.10"
     },

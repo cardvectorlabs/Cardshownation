@@ -1,3 +1,6 @@
+import { db } from "@/lib/db";
+import { isFixtureMode } from "@/lib/data-mode";
+
 type RateLimitOptions = {
   blockMs: number;
   maxAttempts: number;
@@ -13,7 +16,7 @@ const globalForRateLimit = globalThis as typeof globalThis & {
   __csnRateLimitStore?: Map<string, RateLimitBucket>;
 };
 
-function getRateLimitStore() {
+function getMemoryStore() {
   if (!globalForRateLimit.__csnRateLimitStore) {
     globalForRateLimit.__csnRateLimitStore = new Map();
   }
@@ -25,8 +28,8 @@ function getBucketKey(scope: string, key: string) {
   return `${scope}:${key}`;
 }
 
-export function consumeRateLimit(scope: string, key: string, options: RateLimitOptions) {
-  const store = getRateLimitStore();
+function consumeMemoryRateLimit(scope: string, key: string, options: RateLimitOptions) {
+  const store = getMemoryStore();
   const bucketKey = getBucketKey(scope, key);
   const now = Date.now();
   const bucket = store.get(bucketKey) ?? {
@@ -62,6 +65,85 @@ export function consumeRateLimit(scope: string, key: string, options: RateLimitO
   };
 }
 
-export function resetRateLimit(scope: string, key: string) {
-  getRateLimitStore().delete(getBucketKey(scope, key));
+export async function consumeRateLimit(scope: string, key: string, options: RateLimitOptions) {
+  if (isFixtureMode()) {
+    return consumeMemoryRateLimit(scope, key, options);
+  }
+
+  const now = new Date();
+
+  return db.$transaction(async (tx) => {
+    const existing = await tx.rateLimitBucket.findUnique({
+      where: {
+        scope_key: {
+          scope,
+          key,
+        },
+      },
+    });
+
+    if (!existing) {
+      await tx.rateLimitBucket.create({
+        data: {
+          scope,
+          key,
+          attemptCount: 1,
+          windowStart: now,
+          blockedUntil: null,
+        },
+      });
+
+      return {
+        allowed: true,
+        retryAfterMs: 0,
+      };
+    }
+
+    if (existing.blockedUntil && existing.blockedUntil > now) {
+      return {
+        allowed: false,
+        retryAfterMs: existing.blockedUntil.getTime() - now.getTime(),
+      };
+    }
+
+    const windowExpiresAt = existing.windowStart.getTime() + options.windowMs;
+    const windowReset = windowExpiresAt <= now.getTime();
+    const nextAttemptCount = windowReset ? 1 : existing.attemptCount + 1;
+    const blockedUntil = nextAttemptCount > options.maxAttempts ? new Date(now.getTime() + options.blockMs) : null;
+
+    await tx.rateLimitBucket.update({
+      where: { id: existing.id },
+      data: {
+        attemptCount: nextAttemptCount,
+        windowStart: windowReset ? now : existing.windowStart,
+        blockedUntil,
+      },
+    });
+
+    if (blockedUntil) {
+      return {
+        allowed: false,
+        retryAfterMs: options.blockMs,
+      };
+    }
+
+    return {
+      allowed: true,
+      retryAfterMs: 0,
+    };
+  });
+}
+
+export async function resetRateLimit(scope: string, key: string) {
+  if (isFixtureMode()) {
+    getMemoryStore().delete(getBucketKey(scope, key));
+    return;
+  }
+
+  await db.rateLimitBucket.deleteMany({
+    where: {
+      scope,
+      key,
+    },
+  });
 }

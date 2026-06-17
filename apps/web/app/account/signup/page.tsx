@@ -5,7 +5,12 @@ import { US_STATES } from "@/lib/states";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { rethrowIfRedirectError } from "@/lib/next-control-flow";
-import { getUserSession, getUserSessionSecret } from "@/lib/user-auth";
+import {
+  getUserSession,
+  getUserSessionSecret,
+  getUserSessionSecretStatus,
+  MIN_USER_SESSION_SECRET_LENGTH,
+} from "@/lib/user-auth";
 import { createVerificationToken } from "@/lib/verification-token";
 import { sendFanVerificationEmail } from "@/lib/email";
 import { registerFanAccount } from "@/lib/users";
@@ -51,7 +56,7 @@ async function handleSignup(formData: FormData) {
     .filter(Boolean);
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
-  const rateLimit = consumeRateLimit("user-signup", ip, {
+  const rateLimit = await consumeRateLimit("user-signup", ip, {
     blockMs: SIGNUP_BLOCK_MS,
     maxAttempts: MAX_SIGNUP_ATTEMPTS,
     windowMs: SIGNUP_WINDOW_MS,
@@ -76,7 +81,7 @@ async function handleSignup(formData: FormData) {
       name,
       stateCodes,
     });
-    resetRateLimit("user-signup", ip);
+    await resetRateLimit("user-signup", ip);
     const token = await createVerificationToken(user.id);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://cardshownation.com";
     const verifyUrl = `${appUrl}/account/verify?token=${token}`;
@@ -94,9 +99,10 @@ export default async function UserSignupPage({
 }: {
   searchParams: Promise<{ error?: string; sent?: string }>;
 }) {
-  const [session, secret, sp] = await Promise.all([
+  const [session, secret, secretStatus, sp] = await Promise.all([
     getUserSession(),
     getUserSessionSecret(),
+    getUserSessionSecretStatus(),
     searchParams,
   ]);
   if (session) {
@@ -133,7 +139,9 @@ export default async function UserSignupPage({
     sp.error === "exists"
       ? "An account already exists for that email."
       : sp.error === "disabled"
-        ? "User accounts are disabled until USER_SESSION_SECRET is set on the server."
+        ? secretStatus.error === "too_short"
+          ? `USER_SESSION_SECRET must be at least ${MIN_USER_SESSION_SECRET_LENGTH} characters.`
+          : "User accounts are disabled until USER_SESSION_SECRET is set on the server."
         : sp.error === "rate"
           ? "Too many attempts. Wait a bit and try again."
           : sp.error === "validation"
@@ -155,7 +163,9 @@ export default async function UserSignupPage({
 
         {!secret && (
           <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set `USER_SESSION_SECRET` before creating member accounts.
+            {secretStatus.error === "too_short"
+              ? `USER_SESSION_SECRET must be at least ${MIN_USER_SESSION_SECRET_LENGTH} characters.`
+              : "Set `USER_SESSION_SECRET` before creating member accounts."}
           </p>
         )}
 

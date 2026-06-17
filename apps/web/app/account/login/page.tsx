@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import { authenticateFan } from "@/lib/users";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
-import { getUserSession, getUserSessionSecret, startUserSession } from "@/lib/user-auth";
+import {
+  getUserSession,
+  getUserSessionSecret,
+  getUserSessionSecretStatus,
+  MIN_USER_SESSION_SECRET_LENGTH,
+  startUserSession,
+} from "@/lib/user-auth";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
 const LOGIN_WINDOW_MS = 15 * 60 * 1000;
@@ -38,7 +44,7 @@ async function handleLogin(formData: FormData) {
   const sessionSecret = await getUserSessionSecret();
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
-  const rateLimit = consumeRateLimit("user-login", ip, {
+  const rateLimit = await consumeRateLimit("user-login", ip, {
     blockMs: LOGIN_BLOCK_MS,
     maxAttempts: MAX_LOGIN_ATTEMPTS,
     windowMs: LOGIN_WINDOW_MS,
@@ -62,7 +68,7 @@ async function handleLogin(formData: FormData) {
     redirect(`/account/login?error=unverified&from=${encodeURIComponent(redirectTo)}`);
   }
 
-  resetRateLimit("user-login", ip);
+  await resetRateLimit("user-login", ip);
   await startUserSession(user.id);
   redirect(redirectTo);
 }
@@ -72,9 +78,10 @@ export default async function UserLoginPage({
 }: {
   searchParams: Promise<{ error?: string; from?: string }>;
 }) {
-  const [session, secret, sp] = await Promise.all([
+  const [session, secret, secretStatus, sp] = await Promise.all([
     getUserSession(),
     getUserSessionSecret(),
+    getUserSessionSecretStatus(),
     searchParams,
   ]);
   if (session) {
@@ -84,7 +91,9 @@ export default async function UserLoginPage({
   const from = sanitizeUserRedirectTarget(sp.from);
   const errorMessage =
     sp.error === "disabled"
-      ? "User accounts are disabled until USER_SESSION_SECRET is set on the server."
+      ? secretStatus.error === "too_short"
+        ? `USER_SESSION_SECRET must be at least ${MIN_USER_SESSION_SECRET_LENGTH} characters.`
+        : "User accounts are disabled until USER_SESSION_SECRET is set on the server."
       : sp.error === "rate"
         ? "Too many attempts. Wait 30 minutes and try again."
         : sp.error === "invalid"
@@ -108,7 +117,9 @@ export default async function UserLoginPage({
 
         {!secret && (
           <p className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-            Set `USER_SESSION_SECRET` to enable member sign-in.
+            {secretStatus.error === "too_short"
+              ? `USER_SESSION_SECRET must be at least ${MIN_USER_SESSION_SECRET_LENGTH} characters.`
+              : "Set `USER_SESSION_SECRET` to enable member sign-in."}
           </p>
         )}
 

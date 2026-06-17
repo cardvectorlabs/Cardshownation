@@ -66,7 +66,7 @@ async function handleSignup(formData: FormData) {
   const instagramUrl = readOptionalString(formData, "instagramUrl", 2048);
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
-  const rateLimit = consumeRateLimit("promoter-signup", ip, {
+  const rateLimit = await consumeRateLimit("promoter-signup", ip, {
     blockMs: SIGNUP_BLOCK_MS,
     maxAttempts: MAX_SIGNUP_ATTEMPTS,
     windowMs: SIGNUP_WINDOW_MS,
@@ -102,7 +102,7 @@ async function handleSignup(formData: FormData) {
       facebookUrl,
       instagramUrl,
     });
-    resetRateLimit("promoter-signup", ip);
+    await resetRateLimit("promoter-signup", ip);
 
     const token = await createVerificationToken(user.id);
     const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://cardshownation.com";

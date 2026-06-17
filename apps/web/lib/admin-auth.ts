@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { validateSessionSecret } from "@/lib/session-secret";
 import {
   ADMIN_COOKIE_NAME,
   ADMIN_SESSION_MAX_AGE_SECONDS,
@@ -9,8 +10,18 @@ import {
 } from "@/lib/admin-session";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
-async function getAdminSessionSecret() {
-  return process.env.ADMIN_SESSION_SECRET?.trim() || null;
+export const MIN_ADMIN_SESSION_SECRET_LENGTH = 32;
+
+export function validateAdminSessionSecret(secret: string | null | undefined) {
+  return validateSessionSecret(secret, MIN_ADMIN_SESSION_SECRET_LENGTH);
+}
+
+export async function getAdminSessionSecret() {
+  return validateAdminSessionSecret(process.env.ADMIN_SESSION_SECRET).secret;
+}
+
+export async function getAdminSessionSecretStatus() {
+  return validateAdminSessionSecret(process.env.ADMIN_SESSION_SECRET);
 }
 
 export async function getAdminSession() {

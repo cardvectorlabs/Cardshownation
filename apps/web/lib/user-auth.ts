@@ -1,6 +1,7 @@
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { validateSessionSecret } from "@/lib/session-secret";
 import {
   createUserSessionToken,
   USER_COOKIE_NAME,
@@ -9,8 +10,18 @@ import {
 } from "@/lib/user-session";
 import { sanitizeLocalRedirectTarget } from "@/lib/url";
 
+export const MIN_USER_SESSION_SECRET_LENGTH = 32;
+
+export function validateUserSessionSecret(secret: string | null | undefined) {
+  return validateSessionSecret(secret, MIN_USER_SESSION_SECRET_LENGTH);
+}
+
 export async function getUserSessionSecret() {
-  return process.env.USER_SESSION_SECRET?.trim() || null;
+  return validateUserSessionSecret(process.env.USER_SESSION_SECRET).secret;
+}
+
+export async function getUserSessionSecretStatus() {
+  return validateUserSessionSecret(process.env.USER_SESSION_SECRET);
 }
 
 export async function getUserSession() {

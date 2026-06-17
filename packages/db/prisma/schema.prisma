@@ -83,6 +83,20 @@ model PasswordResetToken {
   @@index([token])
 }
 
+model RateLimitBucket {
+  id           String   @id @default(cuid())
+  scope        String
+  key          String
+  attemptCount Int      @default(0)
+  windowStart  DateTime
+  blockedUntil DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([scope, key])
+  @@index([blockedUntil])
+}
+
 model Organizer {
   id           String   @id @default(cuid())
   name         String

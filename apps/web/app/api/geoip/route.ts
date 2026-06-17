@@ -9,7 +9,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ lat: null, lng: null, city: null, error: "local" });
   }
 
-  const rateLimit = consumeRateLimit("geoip", ip ?? "unknown", {
+  const rateLimit = await consumeRateLimit("geoip", ip ?? "unknown", {
     blockMs: 15 * 60 * 1000,
     maxAttempts: 30,
     windowMs: 15 * 60 * 1000,

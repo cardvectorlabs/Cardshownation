@@ -9,6 +9,15 @@ let createModeratorSessionToken: typeof import("./moderator-session").createMode
 let verifyModeratorSessionToken: typeof import("./moderator-session").verifyModeratorSessionToken;
 let validateModeratorSessionSecret: typeof import("./moderator-auth").validateModeratorSessionSecret;
 let MIN_MODERATOR_SESSION_SECRET_LENGTH: typeof import("./moderator-auth").MIN_MODERATOR_SESSION_SECRET_LENGTH;
+let validateUserSessionSecret: typeof import("./user-auth").validateUserSessionSecret;
+let MIN_USER_SESSION_SECRET_LENGTH: typeof import("./user-auth").MIN_USER_SESSION_SECRET_LENGTH;
+let validateAdminSessionSecret: typeof import("./admin-auth").validateAdminSessionSecret;
+let MIN_ADMIN_SESSION_SECRET_LENGTH: typeof import("./admin-auth").MIN_ADMIN_SESSION_SECRET_LENGTH;
+let createPasswordResetToken: typeof import("./password-reset-token").createPasswordResetToken;
+let consumePasswordResetToken: typeof import("./password-reset-token").consumePasswordResetToken;
+let createVerificationToken: typeof import("./verification-token").createVerificationToken;
+let consumeVerificationToken: typeof import("./verification-token").consumeVerificationToken;
+let hashOpaqueToken: typeof import("./token-hash").hashOpaqueToken;
 let approveShowSubmission: typeof import("./submissions").approveShowSubmission;
 let rejectShowSubmission: typeof import("./submissions").rejectShowSubmission;
 let getModeratorVisibleSubmissions: typeof import("./submissions").getModeratorVisibleSubmissions;
@@ -44,6 +53,11 @@ before(async () => {
   ({ validateModeratorSessionSecret, MIN_MODERATOR_SESSION_SECRET_LENGTH } = await import(
     "./moderator-auth"
   ));
+  ({ validateUserSessionSecret, MIN_USER_SESSION_SECRET_LENGTH } = await import("./user-auth"));
+  ({ validateAdminSessionSecret, MIN_ADMIN_SESSION_SECRET_LENGTH } = await import("./admin-auth"));
+  ({ createPasswordResetToken, consumePasswordResetToken } = await import("./password-reset-token"));
+  ({ createVerificationToken, consumeVerificationToken } = await import("./verification-token"));
+  ({ hashOpaqueToken } = await import("./token-hash"));
   ({
     approveShowSubmission,
     rejectShowSubmission,
@@ -127,6 +141,110 @@ test("validateModeratorSessionSecret accepts trimmed strong secrets", () => {
     secret: "x".repeat(MIN_MODERATOR_SESSION_SECRET_LENGTH),
     error: null,
   });
+});
+
+test("validateUserSessionSecret rejects short secrets", () => {
+  assert.deepEqual(validateUserSessionSecret("x".repeat(31)), {
+    secret: null,
+    error: "too_short",
+  });
+});
+
+test("validateUserSessionSecret accepts trimmed strong secrets", () => {
+  const strongSecret = `  ${"x".repeat(MIN_USER_SESSION_SECRET_LENGTH)}  `;
+
+  assert.deepEqual(validateUserSessionSecret(strongSecret), {
+    secret: "x".repeat(MIN_USER_SESSION_SECRET_LENGTH),
+    error: null,
+  });
+});
+
+test("validateAdminSessionSecret rejects short secrets", () => {
+  assert.deepEqual(validateAdminSessionSecret("x".repeat(31)), {
+    secret: null,
+    error: "too_short",
+  });
+});
+
+test("validateAdminSessionSecret accepts trimmed strong secrets", () => {
+  const strongSecret = `  ${"x".repeat(MIN_ADMIN_SESSION_SECRET_LENGTH)}  `;
+
+  assert.deepEqual(validateAdminSessionSecret(strongSecret), {
+    secret: "x".repeat(MIN_ADMIN_SESSION_SECRET_LENGTH),
+    error: null,
+  });
+});
+
+test("createPasswordResetToken stores a hashed token and consumePasswordResetToken looks it up by hash", async () => {
+  const deleteManyMock = stubMethod(db.passwordResetToken, "deleteMany", async () => undefined);
+  const createMock = stubMethod(db.passwordResetToken, "create", async (input) => input);
+  const findUniqueMock = stubMethod(db.passwordResetToken, "findUnique", async () => ({
+    id: "reset-1",
+    user: { id: "user-1", email: "fan@example.com" },
+    expiresAt: new Date(Date.now() + 60_000),
+  }));
+  const deleteMock = stubMethod(db.passwordResetToken, "delete", async (input) => input);
+
+  const token = await createPasswordResetToken("user-1");
+  const user = await consumePasswordResetToken(token);
+
+  assert.equal(deleteManyMock.mock.calls.length, 1);
+  assert.equal(createMock.mock.calls.length, 1);
+  assert.equal(findUniqueMock.mock.calls.length, 1);
+  assert.equal(deleteMock.mock.calls.length, 1);
+  assert.notEqual(token, hashOpaqueToken(token));
+  assert.deepEqual(createMock.mock.calls[0]?.arguments[0], {
+    data: {
+      userId: "user-1",
+      token: hashOpaqueToken(token),
+      expiresAt: createMock.mock.calls[0]?.arguments[0].data.expiresAt,
+    },
+  });
+  assert.deepEqual(findUniqueMock.mock.calls[0]?.arguments[0], {
+    where: { token: hashOpaqueToken(token) },
+    include: { user: true },
+  });
+  assert.deepEqual(deleteMock.mock.calls[0]?.arguments[0], {
+    where: { id: "reset-1" },
+  });
+  assert.deepEqual(user, { id: "user-1", email: "fan@example.com" });
+});
+
+test("createVerificationToken stores a hashed token and consumeVerificationToken looks it up by hash", async () => {
+  const createMock = stubMethod(db.emailVerificationToken, "create", async (input) => input);
+  const findUniqueMock = stubMethod(db.emailVerificationToken, "findUnique", async () => ({
+    id: "verify-1",
+    userId: "user-1",
+    user: { id: "user-1", email: "fan@example.com" },
+    expiresAt: new Date(Date.now() + 60_000),
+  }));
+  const deleteMock = stubMethod(db.emailVerificationToken, "delete", async (input) => input);
+  const updateMock = stubMethod(db.user, "update", async (input) => input);
+
+  const token = await createVerificationToken("user-1");
+  const user = await consumeVerificationToken(token);
+
+  assert.equal(createMock.mock.calls.length, 1);
+  assert.equal(findUniqueMock.mock.calls.length, 1);
+  assert.equal(deleteMock.mock.calls.length, 1);
+  assert.equal(updateMock.mock.calls.length, 1);
+  assert.notEqual(token, hashOpaqueToken(token));
+  assert.deepEqual(createMock.mock.calls[0]?.arguments[0], {
+    data: {
+      userId: "user-1",
+      token: hashOpaqueToken(token),
+      expiresAt: createMock.mock.calls[0]?.arguments[0].data.expiresAt,
+    },
+  });
+  assert.deepEqual(findUniqueMock.mock.calls[0]?.arguments[0], {
+    where: { token: hashOpaqueToken(token) },
+    include: { user: true },
+  });
+  assert.deepEqual(updateMock.mock.calls[0]?.arguments[0], {
+    where: { id: "user-1" },
+    data: { emailVerifiedAt: updateMock.mock.calls[0]?.arguments[0].data.emailVerifiedAt },
+  });
+  assert.deepEqual(user, { id: "user-1", email: "fan@example.com" });
 });
 
 test("getModeratorVisibleSubmissions returns only pending and self-reviewed submissions", async () => {

@@ -1,14 +1,33 @@
 import Link from "next/link";
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { sendPasswordResetEmail } from "@/lib/email";
 import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import { createPasswordResetToken } from "@/lib/password-reset-token";
+import { getRequestIp } from "@/lib/request-ip";
+import { consumeRateLimit } from "@/lib/rate-limit";
+
+const RESET_WINDOW_MS = 60 * 60 * 1000;
+const RESET_BLOCK_MS = 60 * 60 * 1000;
+const MAX_RESET_ATTEMPTS = 5;
 
 async function handleForgotPassword(formData: FormData) {
   "use server";
 
   const email = (formData.get("email") as string)?.trim().toLowerCase();
+  const requestHeaders = await headers();
+  const ip = getRequestIp(requestHeaders) ?? "unknown";
+  const rateLimit = await consumeRateLimit("moderator-forgot-password", ip, {
+    blockMs: RESET_BLOCK_MS,
+    maxAttempts: MAX_RESET_ATTEMPTS,
+    windowMs: RESET_WINDOW_MS,
+  });
+
+  if (!rateLimit.allowed) {
+    redirect("/moderator/forgot-password?error=rate");
+  }
+
   if (!email) {
     redirect("/moderator/forgot-password?error=1");
   }
@@ -67,6 +86,9 @@ export default async function ModeratorForgotPasswordPage({
   }
 
   const errorMessage =
+    sp.error === "rate"
+      ? "Too many reset requests from this connection. Please wait a bit and try again."
+      :
     sp.error === "send"
       ? "We couldn't send the reset email right now. Please try again in a minute."
       : null;

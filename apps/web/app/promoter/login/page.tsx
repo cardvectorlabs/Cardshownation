@@ -46,7 +46,7 @@ async function handleLogin(formData: FormData) {
   const sessionSecret = await getPromoterSessionSecret();
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
-  const rateLimit = consumeRateLimit("promoter-login", ip, {
+  const rateLimit = await consumeRateLimit("promoter-login", ip, {
     blockMs: LOGIN_BLOCK_MS,
     maxAttempts: MAX_LOGIN_ATTEMPTS,
     windowMs: LOGIN_WINDOW_MS,
@@ -70,7 +70,7 @@ async function handleLogin(formData: FormData) {
     redirect(`/promoter/login?error=unverified&next=${encodeURIComponent(redirectTo)}`);
   }
 
-  resetRateLimit("promoter-login", ip);
+  await resetRateLimit("promoter-login", ip);
   await startPromoterSession(user.id);
   redirect(redirectTo);
 }

@@ -311,8 +311,9 @@ export async function assignModeratorAccessByAdmin(input: AdminUserActionInput) 
     throw new Error("That account type cannot be converted to moderator.");
   }
 
+  let updatedUser = user;
   if (user.role !== "MODERATOR") {
-    await db.user.update({
+    updatedUser = await db.user.update({
       where: { id: user.id },
       data: { role: "MODERATOR" },
     });
@@ -330,11 +331,7 @@ export async function assignModeratorAccessByAdmin(input: AdminUserActionInput) 
     },
   });
 
-  return user.role === "MODERATOR"
-    ? user
-    : db.user.findUniqueOrThrow({
-        where: { id: user.id },
-      });
+  return updatedUser;
 }
 
 export async function sendPasswordResetByAdmin(input: AdminUserActionInput) {

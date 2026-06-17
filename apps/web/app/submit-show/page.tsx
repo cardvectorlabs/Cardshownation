@@ -96,7 +96,7 @@ async function handleSubmission(formData: FormData) {
 
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
-  const rateLimit = consumeRateLimit("submit-show", ip, {
+  const rateLimit = await consumeRateLimit("submit-show", ip, {
     blockMs: SUBMISSION_WINDOW_MS,
     maxAttempts: MAX_SUBMISSIONS_PER_HOUR,
     windowMs: SUBMISSION_WINDOW_MS,

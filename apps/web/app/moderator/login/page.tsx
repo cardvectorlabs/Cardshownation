@@ -44,7 +44,7 @@ async function handleLogin(formData: FormData) {
   const sessionSecret = await getModeratorSessionSecret();
   const requestHeaders = await headers();
   const ip = getRequestIp(requestHeaders) ?? "unknown";
-  const rateLimit = consumeRateLimit("moderator-login", ip, {
+  const rateLimit = await consumeRateLimit("moderator-login", ip, {
     blockMs: LOGIN_BLOCK_MS,
     maxAttempts: MAX_LOGIN_ATTEMPTS,
     windowMs: LOGIN_WINDOW_MS,
@@ -68,7 +68,7 @@ async function handleLogin(formData: FormData) {
     redirect(`/moderator/login?error=unverified&from=${encodeURIComponent(redirectTo)}`);
   }
 
-  resetRateLimit("moderator-login", ip);
+  await resetRateLimit("moderator-login", ip);
   await startModeratorSession(user.id);
   redirect(redirectTo);
 }

@@ -2,7 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logoutUser } from "@/app/account/actions";
 import { US_STATES } from "@/lib/states";
-import { getUserSession, getUserSessionSecret, requireUserSession } from "@/lib/user-auth";
+import {
+  getUserSession,
+  getUserSessionSecret,
+  getUserSessionSecretStatus,
+  MIN_USER_SESSION_SECRET_LENGTH,
+  requireUserSession,
+} from "@/lib/user-auth";
 import { getFanAccountData, updateFanStateSubscriptions } from "@/lib/users";
 
 export const dynamic = "force-dynamic";
@@ -26,9 +32,10 @@ export default async function AccountPage({
 }: {
   searchParams: Promise<{ updated?: string }>;
 }) {
-  const [session, secret, sp] = await Promise.all([
+  const [session, secret, secretStatus, sp] = await Promise.all([
     getUserSession(),
     getUserSessionSecret(),
+    getUserSessionSecretStatus(),
     searchParams,
   ]);
 
@@ -39,7 +46,9 @@ export default async function AccountPage({
           <p className="text-sm font-semibold uppercase tracking-[0.2em]">Member accounts unavailable</p>
           <h1 className="mt-3 text-3xl font-semibold tracking-tight">Set a session secret to enable user accounts</h1>
           <p className="mt-4 text-base leading-7">
-            Add `USER_SESSION_SECRET` to the web app environment, then reload this page.
+            {secretStatus.error === "too_short"
+              ? `USER_SESSION_SECRET must be at least ${MIN_USER_SESSION_SECRET_LENGTH} characters.`
+              : "Add `USER_SESSION_SECRET` to the web app environment, then reload this page."}
           </p>
         </div>
       </div>

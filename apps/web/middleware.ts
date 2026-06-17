@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ADMIN_COOKIE_NAME, verifyAdminSessionToken } from "@/lib/admin-session";
+import { validateSessionSecret } from "@/lib/session-secret";
 
-const ADMIN_SESSION_SECRET = process.env.ADMIN_SESSION_SECRET;
 const LOGIN_PATH = "/admin/login";
 const SETUP_PATH = "/admin/setup";
 
@@ -16,14 +16,15 @@ export async function middleware(req: NextRequest) {
     return NextResponse.next();
   }
 
-  if (!ADMIN_SESSION_SECRET) {
-    return new NextResponse("Admin access disabled - set ADMIN_SESSION_SECRET.", {
+  const adminSessionSecret = validateSessionSecret(process.env.ADMIN_SESSION_SECRET, 32).secret;
+  if (!adminSessionSecret) {
+    return new NextResponse("Admin access disabled - set a strong ADMIN_SESSION_SECRET.", {
       status: 503,
     });
   }
 
   const cookie = req.cookies.get(ADMIN_COOKIE_NAME);
-  if (await verifyAdminSessionToken(cookie?.value, ADMIN_SESSION_SECRET)) {
+  if (await verifyAdminSessionToken(cookie?.value, adminSessionSecret)) {
     return NextResponse.next();
   }
 
