@@ -1,9 +1,14 @@
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit-log";
-import { getEmailConfigStatus, sendFanVerificationEmail, sendPasswordResetEmail } from "@/lib/email";
+import {
+  getEmailConfigStatus,
+  sendFanEmailChangeNotice,
+  sendFanEmailChangeVerificationEmail,
+  sendPasswordResetEmail,
+} from "@/lib/email";
 import { createPasswordResetToken } from "@/lib/password-reset-token";
-import { hashPassword, verifyPassword } from "@/lib/passwords";
+import { hashPassword, MIN_PASSWORD_LENGTH, verifyPassword } from "@/lib/passwords";
 import { US_STATES } from "@/lib/states";
 import { hashOpaqueToken } from "@/lib/token-hash";
 import type { Prisma, UserRole } from "@csn/db";
@@ -40,6 +45,12 @@ type UpdateFanProfileInput = {
   phone?: string;
   city?: string;
   state?: string;
+};
+
+type ChangeFanPasswordInput = {
+  userId: string;
+  currentPassword: string;
+  nextPassword: string;
 };
 
 const EMAIL_VERIFICATION_TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
@@ -491,7 +502,7 @@ export async function updateFanProfile(input: UpdateFanProfileInput) {
 
   try {
     const verifyUrl = `${getAppUrl()}/account/verify?token=${verification.token}`;
-    await sendFanVerificationEmail(email, verifyUrl);
+    await sendFanEmailChangeVerificationEmail(email, user.email, verifyUrl);
   } catch (error) {
     await db.$transaction(async (tx) => {
       await tx.emailVerificationToken.deleteMany({
@@ -503,6 +514,7 @@ export async function updateFanProfile(input: UpdateFanProfileInput) {
         data: {
           email: user.email,
           emailVerifiedAt: user.emailVerifiedAt,
+          sessionVersion: user.sessionVersion,
         },
       });
     });
@@ -510,7 +522,57 @@ export async function updateFanProfile(input: UpdateFanProfileInput) {
     throw error;
   }
 
+  void Promise.allSettled([
+    sendFanEmailChangeNotice(user.email, email),
+  ]).then((results) => {
+    for (const result of results) {
+      if (result.status === "rejected") {
+        console.error("[account email-change] optional email failed", result.reason);
+      }
+    }
+  });
+
   return { emailChanged: true as const };
+}
+
+export async function changeFanPassword(input: ChangeFanPasswordInput) {
+  const user = await db.user.findUnique({
+    where: { id: input.userId },
+  });
+
+  if (!user || user.role !== "FAN") {
+    throw new Error("User account not found.");
+  }
+
+  const currentPassword = input.currentPassword.trim();
+  const nextPassword = input.nextPassword;
+  if (nextPassword.length < MIN_PASSWORD_LENGTH) {
+    throw new Error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters.`);
+  }
+
+  const valid = await verifyPassword(currentPassword, user.passwordHash);
+  if (!valid) {
+    throw new Error("Current password was incorrect.");
+  }
+
+  const passwordHash = await hashPassword(nextPassword);
+  await db.user.update({
+    where: { id: user.id },
+    data: {
+      passwordHash,
+      sessionVersion: {
+        increment: 1,
+      },
+    },
+  });
+
+  await writeAuditLog({
+    actorId: user.id,
+    actorRole: "FAN",
+    action: "fan.password_changed",
+    targetType: "User",
+    targetId: user.id,
+  });
 }
 
 export async function getUserRoleStats() {
@@ -539,7 +601,12 @@ export async function resetModeratorPasswordByAdmin(
   const passwordHash = await hashPassword(input.nextPassword);
   await db.user.update({
     where: { id: user.id },
-    data: { passwordHash },
+    data: {
+      passwordHash,
+      sessionVersion: {
+        increment: 1,
+      },
+    },
   });
 
   await writeAuditLog({

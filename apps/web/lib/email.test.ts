@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getEmailConfigStatus, getFromAddress } from "./email";
+import {
+  getEmailConfigStatus,
+  getFromAddress,
+  sendFanEmailChangeNotice,
+  sendFanEmailChangeVerificationEmail,
+} from "./email";
 
 test("getFromAddress prefers explicit Resend sender env vars", () => {
   const originalFromEmail = process.env.RESEND_FROM_EMAIL;
@@ -62,4 +67,62 @@ test("getEmailConfigStatus rejects personal inbox senders", () => {
 
   process.env.RESEND_API_KEY = originalApiKey;
   process.env.RESEND_FROM_EMAIL = originalFromEmail;
+});
+
+test("sendFanEmailChangeVerificationEmail uses the configured sender", async () => {
+  const originalApiKey = process.env.RESEND_API_KEY;
+  const originalFromEmail = process.env.RESEND_FROM_EMAIL;
+  const originalFetch = global.fetch;
+  const requests: any[] = [];
+
+  process.env.RESEND_API_KEY = "re_test_key";
+  process.env.RESEND_FROM_EMAIL = "Card Show Nation <noreply@cardshownation.com>";
+  global.fetch = async (_input: any, init?: any) => {
+    requests.push(JSON.parse(init?.body ?? "{}"));
+    return new Response(JSON.stringify({ id: "email_123" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  await sendFanEmailChangeVerificationEmail(
+    "new@example.com",
+    "old@example.com",
+    "https://cardshownation.com/account/verify?token=abc"
+  );
+
+  assert.equal(requests[0]?.to, "new@example.com");
+  assert.match(requests[0]?.subject ?? "", /confirm your new/i);
+  assert.match(requests[0]?.html ?? "", /old@example.com/i);
+
+  process.env.RESEND_API_KEY = originalApiKey;
+  process.env.RESEND_FROM_EMAIL = originalFromEmail;
+  global.fetch = originalFetch;
+});
+
+test("sendFanEmailChangeNotice uses the configured sender", async () => {
+  const originalApiKey = process.env.RESEND_API_KEY;
+  const originalFromEmail = process.env.RESEND_FROM_EMAIL;
+  const originalFetch = global.fetch;
+  const requests: any[] = [];
+
+  process.env.RESEND_API_KEY = "re_test_key";
+  process.env.RESEND_FROM_EMAIL = "Card Show Nation <noreply@cardshownation.com>";
+  global.fetch = async (_input: any, init?: any) => {
+    requests.push(JSON.parse(init?.body ?? "{}"));
+    return new Response(JSON.stringify({ id: "email_123" }), {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    });
+  };
+
+  await sendFanEmailChangeNotice("old@example.com", "new@example.com");
+
+  assert.equal(requests[0]?.to, "old@example.com");
+  assert.match(requests[0]?.subject ?? "", /email was changed/i);
+  assert.match(requests[0]?.html ?? "", /new@example.com/i);
+
+  process.env.RESEND_API_KEY = originalApiKey;
+  process.env.RESEND_FROM_EMAIL = originalFromEmail;
+  global.fetch = originalFetch;
 });

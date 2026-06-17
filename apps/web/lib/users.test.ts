@@ -367,7 +367,44 @@ test("updateFanProfile changes email, stores a verification token, and sends ver
   });
   assert.equal(sentEmails[0]?.from, "Card Show Nation <noreply@cardshownation.com>");
   assert.equal(sentEmails[0]?.to, "new@example.com");
+  assert.match(sentEmails[0]?.subject ?? "", /confirm your new/i);
   assert.deepEqual(result, { emailChanged: true });
+});
+
+test("changeFanPassword rotates the stored password and session version", async () => {
+  const { hashPassword } = await import("./passwords");
+
+  stubMethod(db.user, "findUnique", async () => ({
+    id: "fan-1",
+    email: "fan@example.com",
+    role: "FAN",
+    passwordHash: await hashPassword("password123"),
+  }));
+  const updateUserMock = stubMethod(db.user, "update", async (input) => input);
+  const auditLogMock = stubMethod(db.auditLog, "create", async (input) => input);
+
+  await usersModule.changeFanPassword({
+    userId: "fan-1",
+    currentPassword: "password123",
+    nextPassword: "new-password-456",
+  });
+
+  assert.equal(updateUserMock.mock.calls.length, 1);
+  assert.equal(updateUserMock.mock.calls[0]?.arguments[0].where.id, "fan-1");
+  assert.deepEqual(updateUserMock.mock.calls[0]?.arguments[0].data.sessionVersion, {
+    increment: 1,
+  });
+  assert.equal(typeof updateUserMock.mock.calls[0]?.arguments[0].data.passwordHash, "string");
+  assert.deepEqual(auditLogMock.mock.calls[0]?.arguments[0], {
+    data: {
+      actorId: "fan-1",
+      actorRole: "FAN",
+      action: "fan.password_changed",
+      targetType: "User",
+      targetId: "fan-1",
+      details: undefined,
+    },
+  });
 });
 
 test("registerFanAccount creates both state and organizer preferences", async () => {

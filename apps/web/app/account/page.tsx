@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logoutUser } from "@/app/account/actions";
+import { MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, readPasswordInput } from "@/lib/passwords";
 import { US_STATES } from "@/lib/states";
 import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import {
@@ -9,8 +10,10 @@ import {
   getUserSessionSecretStatus,
   MIN_USER_SESSION_SECRET_LENGTH,
   requireUserSession,
+  startUserSession,
 } from "@/lib/user-auth";
 import {
+  changeFanPassword,
   getFanAccountData,
   listFavoriteOrganizerOptions,
   updateFanFavoriteOrganizers,
@@ -94,10 +97,41 @@ async function saveSubscriptions(formData: FormData) {
   redirect("/account?updated=1");
 }
 
+async function savePassword(formData: FormData) {
+  "use server";
+
+  const session = await requireUserSession("/account");
+  const currentPassword = readPasswordInput(formData, "currentPassword");
+  const nextPassword = readPasswordInput(formData, "nextPassword");
+  const confirmPassword = readPasswordInput(formData, "confirmPassword");
+
+  if (
+    !currentPassword ||
+    !nextPassword ||
+    nextPassword.length < MIN_PASSWORD_LENGTH ||
+    nextPassword !== confirmPassword
+  ) {
+    redirect("/account?error=password");
+  }
+
+  try {
+    await changeFanPassword({
+      userId: session.user.id,
+      currentPassword,
+      nextPassword,
+    });
+    await startUserSession(session.user.id);
+    redirect("/account?password=1");
+  } catch (error) {
+    rethrowIfRedirectError(error);
+    redirect("/account?error=password");
+  }
+}
+
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ updated?: string; profile?: string; error?: string }>;
+  searchParams: Promise<{ updated?: string; profile?: string; password?: string; error?: string }>;
 }) {
   const [session, secret, secretStatus, sp] = await Promise.all([
     getUserSession(),
@@ -169,9 +203,15 @@ export default async function AccountPage({
       ? "Profile saved. Check your new email inbox for a verification link before your next login."
       : sp.profile === "1"
         ? "Profile updated."
+        : sp.password === "1"
+          ? "Password updated."
         : sp.updated === "1"
           ? "State subscriptions updated."
           : null;
+  const errorMessage =
+    sp.error === "password"
+      ? `Password update failed. Check your current password and make sure the new one is at least ${MIN_PASSWORD_LENGTH} characters.`
+      : sp.error ?? null;
 
   return (
     <div className="container-wide py-6 sm:py-10">
@@ -206,9 +246,9 @@ export default async function AccountPage({
             </p>
           )}
 
-          {sp.error && (
+          {errorMessage && (
             <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-              {sp.error}
+              {errorMessage}
             </p>
           )}
 
@@ -385,6 +425,74 @@ export default async function AccountPage({
               className="inline-flex items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
             >
               Save subscriptions
+            </button>
+          </form>
+
+          <form action={savePassword} className="mt-8 space-y-6">
+            <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900">Password</h2>
+                  <p className="mt-1 text-sm text-slate-500">
+                    Change your password and automatically invalidate older sessions on other devices.
+                  </p>
+                </div>
+                <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Security</p>
+              </div>
+
+              <div className="mt-5 grid gap-5 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label htmlFor="currentPassword" className="mb-2 block text-sm font-medium text-slate-700">
+                    Current password
+                  </label>
+                  <input
+                    id="currentPassword"
+                    name="currentPassword"
+                    type="password"
+                    required
+                    maxLength={MAX_PASSWORD_LENGTH}
+                    autoComplete="current-password"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="nextPassword" className="mb-2 block text-sm font-medium text-slate-700">
+                    New password
+                  </label>
+                  <input
+                    id="nextPassword"
+                    name="nextPassword"
+                    type="password"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    maxLength={MAX_PASSWORD_LENGTH}
+                    autoComplete="new-password"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label htmlFor="confirmPassword" className="mb-2 block text-sm font-medium text-slate-700">
+                    Confirm new password
+                  </label>
+                  <input
+                    id="confirmPassword"
+                    name="confirmPassword"
+                    type="password"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    maxLength={MAX_PASSWORD_LENGTH}
+                    autoComplete="new-password"
+                    className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              className="inline-flex items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
+            >
+              Update password
             </button>
           </form>
         </section>

@@ -2,7 +2,6 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { hashPassword, MAX_PASSWORD_LENGTH, MIN_PASSWORD_LENGTH, readPasswordInput } from "@/lib/passwords";
 import { consumePasswordResetToken } from "@/lib/password-reset-token";
-import { startPromoterSession } from "@/lib/promoter-auth";
 import { db } from "@/lib/db";
 
 async function handleReset(token: string, formData: FormData) {
@@ -16,18 +15,23 @@ async function handleReset(token: string, formData: FormData) {
   }
 
   const user = await consumePasswordResetToken(token);
-  if (!user) {
+  if (!user || user.role !== "ORGANIZER") {
     redirect("/promoter/reset-password?error=expired");
   }
 
   const passwordHash = await hashPassword(password);
   await db.user.update({
     where: { id: user.id },
-    data: { passwordHash, emailVerifiedAt: user.emailVerifiedAt ?? new Date() },
+    data: {
+      passwordHash,
+      emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
+      sessionVersion: {
+        increment: 1,
+      },
+    },
   });
 
-  await startPromoterSession(user.id);
-  redirect("/promoter");
+  redirect("/promoter/login?reset=1");
 }
 
 export default async function ResetPasswordPage({

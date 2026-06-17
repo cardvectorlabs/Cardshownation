@@ -79,7 +79,7 @@ async function handleLogin(formData: FormData) {
 export default async function PromoterLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; from?: string; next?: string }>;
+  searchParams: Promise<{ error?: string; from?: string; next?: string; reset?: string }>;
 }) {
   const [session, secret, secretStatus, sp] = await Promise.all([
     getPromoterSession(),
@@ -92,6 +92,8 @@ export default async function PromoterLoginPage({
   }
 
   const next = sanitizePromoterRedirectTarget(sp.next ?? sp.from);
+  const successMessage =
+    sp.reset === "1" ? "Password updated. Log in with your new password." : null;
   const errorMessage =
     sp.error === "rate"
       ? "Too many attempts. Wait 30 minutes and try again."
@@ -129,6 +131,12 @@ export default async function PromoterLoginPage({
         {errorMessage && (
           <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMessage}
+          </p>
+        )}
+
+        {successMessage && (
+          <p className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {successMessage}
           </p>
         )}
 

@@ -58,7 +58,12 @@ export async function getModeratorSession() {
     where: { id: payload.uid },
   });
 
-  if (!user || user.role !== "MODERATOR") {
+  if (
+    !user ||
+    user.role !== "MODERATOR" ||
+    !user.emailVerifiedAt ||
+    payload.sv !== user.sessionVersion
+  ) {
     return null;
   }
 
@@ -82,7 +87,19 @@ export async function startModeratorSession(userId: string) {
     throw new Error("Moderator portal is not configured.");
   }
 
-  const token = await createModeratorSessionToken(userId, secret);
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      emailVerifiedAt: true,
+      sessionVersion: true,
+    },
+  });
+  if (!user || user.role !== "MODERATOR" || !user.emailVerifiedAt) {
+    throw new Error("Moderator account not found.");
+  }
+
+  const token = await createModeratorSessionToken(userId, user.sessionVersion, secret);
   const cookieStore = await cookies();
   cookieStore.set(MODERATOR_COOKIE_NAME, token, {
     httpOnly: true,

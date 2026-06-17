@@ -77,7 +77,7 @@ async function handleLogin(formData: FormData) {
 export default async function ModeratorLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; from?: string }>;
+  searchParams: Promise<{ error?: string; from?: string; reset?: string }>;
 }) {
   const [session, secret, secretStatus, sp] = await Promise.all([
     getModeratorSession(),
@@ -90,6 +90,8 @@ export default async function ModeratorLoginPage({
   }
 
   const from = sanitizeModeratorRedirectTarget(sp.from);
+  const successMessage =
+    sp.reset === "1" ? "Password updated. Log in with your new password." : null;
   const errorMessage =
     sp.error === "disabled"
       ? secret === null
@@ -131,6 +133,12 @@ export default async function ModeratorLoginPage({
         {errorMessage && (
           <p className="mt-5 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMessage}
+          </p>
+        )}
+
+        {successMessage && (
+          <p className="mt-5 rounded-2xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {successMessage}
           </p>
         )}
 

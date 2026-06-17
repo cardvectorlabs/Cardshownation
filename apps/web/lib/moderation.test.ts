@@ -74,17 +74,18 @@ afterEach(() => {
 });
 
 test("createModeratorSessionToken returns a verifiable moderator token", async () => {
-  const token = await createModeratorSessionToken("moderator-123", "super-secret");
+  const token = await createModeratorSessionToken("moderator-123", 3, "super-secret");
   const payload = await verifyModeratorSessionToken(token, "super-secret");
 
   assert.ok(payload);
   assert.equal(payload.uid, "moderator-123");
   assert.equal(payload.aud, "card-show-nation-moderator");
+  assert.equal(payload.sv, 3);
   assert.equal(payload.v, 1);
 });
 
 test("verifyModeratorSessionToken rejects tampered signatures", async () => {
-  const token = await createModeratorSessionToken("moderator-123", "super-secret");
+  const token = await createModeratorSessionToken("moderator-123", 1, "super-secret");
   const [payloadSegment, signatureSegment] = token.split(".");
   const decodedPayload = JSON.parse(Buffer.from(payloadSegment, "base64url").toString("utf8"));
   decodedPayload.uid = "moderator-456";
@@ -101,7 +102,7 @@ test("verifyModeratorSessionToken rejects tampered signatures", async () => {
 test("verifyModeratorSessionToken rejects tokens issued too far in the future", async () => {
   const now = 1_700_000_000_000;
   const dateNowMock = mock.method(Date, "now", () => now + 120_000);
-  const token = await createModeratorSessionToken("moderator-123", "super-secret");
+  const token = await createModeratorSessionToken("moderator-123", 1, "super-secret");
 
   dateNowMock.mock.mockImplementation(() => now);
   const payload = await verifyModeratorSessionToken(token, "super-secret");
@@ -112,7 +113,7 @@ test("verifyModeratorSessionToken rejects tokens issued too far in the future", 
 test("verifyModeratorSessionToken rejects expired tokens", async () => {
   const now = 1_700_000_000_000;
   const dateNowMock = mock.method(Date, "now", () => now);
-  const token = await createModeratorSessionToken("moderator-123", "super-secret", 10);
+  const token = await createModeratorSessionToken("moderator-123", 1, "super-secret", 10);
 
   dateNowMock.mock.mockImplementation(() => now + 11_000);
   const payload = await verifyModeratorSessionToken(token, "super-secret");

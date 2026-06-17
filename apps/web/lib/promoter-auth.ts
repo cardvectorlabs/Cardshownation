@@ -57,7 +57,12 @@ export async function getPromoterSession() {
     },
   });
 
-  if (!user?.organizer || user.role !== "ORGANIZER") {
+  if (
+    !user?.organizer ||
+    user.role !== "ORGANIZER" ||
+    !user.emailVerifiedAt ||
+    payload.sv !== user.sessionVersion
+  ) {
     return null;
   }
 
@@ -84,7 +89,24 @@ export async function startPromoterSession(userId: string) {
     throw new Error("Promoter portal is not configured.");
   }
 
-  const token = await createPromoterSessionToken(userId, secret);
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      emailVerifiedAt: true,
+      sessionVersion: true,
+      organizer: {
+        select: {
+          id: true,
+        },
+      },
+    },
+  });
+  if (!user?.organizer || user.role !== "ORGANIZER" || !user.emailVerifiedAt) {
+    throw new Error("Promoter account not found.");
+  }
+
+  const token = await createPromoterSessionToken(userId, user.sessionVersion, secret);
   const cookieStore = await cookies();
   cookieStore.set(PROMOTER_COOKIE_NAME, token, {
     httpOnly: true,

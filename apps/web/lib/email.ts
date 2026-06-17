@@ -177,6 +177,58 @@ export async function sendFanVerificationEmail(to: string, verifyUrl: string) {
   });
 }
 
+export async function sendFanEmailChangeVerificationEmail(
+  to: string,
+  previousEmail: string,
+  verifyUrl: string
+) {
+  await sendEmail({
+    from: getFromAddress(),
+    to,
+    subject: "Confirm your new Card Show Nation email",
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px">
+        <h1 style="font-size:22px;font-weight:600;color:#020617;margin-bottom:8px">
+          Confirm your new email
+        </h1>
+        <p style="color:#475569;font-size:15px;line-height:1.6;margin-bottom:24px">
+          We received a request to change your Card Show Nation member email from
+          ${previousEmail} to this address. Verify this email to finish the update.
+          This link expires in 24 hours.
+        </p>
+        <a href="${verifyUrl}"
+           style="display:inline-block;background:#0284c7;color:#fff;font-size:14px;
+                  font-weight:600;padding:12px 24px;border-radius:9999px;
+                  text-decoration:none">
+          Verify new email
+        </a>
+      </div>
+    `,
+  });
+}
+
+export async function sendFanEmailChangeNotice(to: string, newEmail: string) {
+  await sendEmail({
+    from: getFromAddress(),
+    to,
+    subject: "Your Card Show Nation email was changed",
+    html: `
+      <div style="font-family:sans-serif;max-width:520px;margin:0 auto;padding:32px 16px">
+        <h1 style="font-size:22px;font-weight:600;color:#020617;margin-bottom:8px">
+          Your email was updated
+        </h1>
+        <p style="color:#475569;font-size:15px;line-height:1.6;margin-bottom:24px">
+          Your Card Show Nation member account email was changed to ${newEmail}.
+          If you made this change, no further action is required.
+        </p>
+        <p style="color:#94a3b8;font-size:13px;margin-top:24px">
+          If you did not make this change, reset your password immediately and contact support.
+        </p>
+      </div>
+    `,
+  });
+}
+
 export async function sendModeratorVerificationEmail(to: string, verifyUrl: string) {
   await sendEmail({
     from: getFromAddress(),
