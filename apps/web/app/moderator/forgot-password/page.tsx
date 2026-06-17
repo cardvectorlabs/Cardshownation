@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { sendPasswordResetEmail } from "@/lib/email";
+import { getEmailConfigStatus, sendPasswordResetEmail } from "@/lib/email";
 import { rethrowIfRedirectError } from "@/lib/next-control-flow";
 import { createPasswordResetToken } from "@/lib/password-reset-token";
 import { getRequestIp } from "@/lib/request-ip";
@@ -57,7 +57,7 @@ export default async function ModeratorForgotPasswordPage({
 }: {
   searchParams: Promise<{ sent?: string; error?: string }>;
 }) {
-  const sp = await searchParams;
+  const [sp, emailStatus] = await Promise.all([searchParams, Promise.resolve(getEmailConfigStatus())]);
 
   if (sp.sent === "1") {
     return (
@@ -107,6 +107,12 @@ export default async function ModeratorForgotPasswordPage({
           link.
         </p>
 
+        {!emailStatus.ready && (
+          <p className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            {emailStatus.error}
+          </p>
+        )}
+
         {errorMessage && (
           <p className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorMessage}
@@ -125,12 +131,14 @@ export default async function ModeratorForgotPasswordPage({
               required
               autoFocus
               autoComplete="email"
+              disabled={!emailStatus.ready}
               className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-base text-slate-900 focus:border-brand-400 focus:outline-none"
             />
           </div>
 
           <button
             type="submit"
+            disabled={!emailStatus.ready}
             className="inline-flex w-full items-center justify-center rounded-full bg-brand-600 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-brand-700"
           >
             Send reset link

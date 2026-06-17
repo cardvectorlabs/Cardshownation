@@ -3,12 +3,27 @@ import type { UserRole } from "@csn/db";
 
 const DEFAULT_FROM_ADDRESS = "Card Show Nation <onboarding@resend.dev>";
 
-function getResend() {
-  const apiKey = process.env.RESEND_API_KEY?.trim();
+export function getEmailConfigStatus() {
+  const apiKey = process.env.RESEND_API_KEY?.trim() || "";
   if (!apiKey) {
-    throw new Error("RESEND_API_KEY is not configured.");
+    return {
+      ready: false as const,
+      error: "Email sending is not configured: set RESEND_API_KEY.",
+    };
   }
-  return new Resend(apiKey);
+
+  return {
+    ready: true as const,
+    error: null,
+  };
+}
+
+function getResend() {
+  const config = getEmailConfigStatus();
+  if (!config.ready) {
+    throw new Error(config.error);
+  }
+  return new Resend(process.env.RESEND_API_KEY!.trim());
 }
 
 export function getFromAddress() {

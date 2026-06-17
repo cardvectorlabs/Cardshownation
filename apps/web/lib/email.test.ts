@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { getFromAddress } from "./email";
+import { getEmailConfigStatus, getFromAddress } from "./email";
 
 test("getFromAddress prefers explicit Resend sender env vars", () => {
   const originalFromEmail = process.env.RESEND_FROM_EMAIL;
@@ -29,4 +29,17 @@ test("getFromAddress falls back to Resend onboarding sender", () => {
 
   process.env.RESEND_FROM_EMAIL = originalFromEmail;
   process.env.RESEND_FROM_ADDRESS = originalFromAddress;
+});
+
+test("getEmailConfigStatus reports missing Resend API keys", () => {
+  const originalApiKey = process.env.RESEND_API_KEY;
+
+  process.env.RESEND_API_KEY = "";
+
+  assert.deepEqual(getEmailConfigStatus(), {
+    ready: false,
+    error: "Email sending is not configured: set RESEND_API_KEY.",
+  });
+
+  process.env.RESEND_API_KEY = originalApiKey;
 });
