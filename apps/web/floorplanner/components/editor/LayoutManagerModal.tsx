@@ -13,6 +13,7 @@ import {
   type LayoutEntry,
 } from '@floorplanner/lib/persistence'
 import {
+  CloudQuotaExceededError,
   CloudRevisionConflictError,
   deleteCloudLayout,
   getCloudSession,
@@ -216,6 +217,8 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
       await refreshCloudLayouts()
     } catch (error) {
       if (error instanceof CloudRevisionConflictError) {
+        setCloudError(error.message)
+      } else if (error instanceof CloudQuotaExceededError) {
         setCloudError(error.message)
       } else {
         setCloudError(error instanceof Error ? error.message : 'Failed to save cloud layout.')
@@ -471,6 +474,9 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
                       {activeCloudLayoutId ? 'Update Cloud' : 'Save To Cloud'}
                     </button>
                   </div>
+                  <p className="text-xs text-gray-500">
+                    Admin and moderator accounts can keep up to 10 cloud projects each.
+                  </p>
                 </>
               )}
               {cloudStatus && <p className="text-xs text-emerald-300">{cloudStatus}</p>}

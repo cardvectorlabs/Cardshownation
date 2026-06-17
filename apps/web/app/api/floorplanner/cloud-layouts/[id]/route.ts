@@ -43,7 +43,10 @@ export async function GET(
   const { id } = await context.params;
 
   await ensureCloudLayoutsTable();
-  const layout = await getCloudLayout(id);
+  const layout = await getCloudLayout(id, {
+    userId: session.user.id,
+    role: session.role,
+  });
   if (!layout) {
     return notFoundResponse();
   }
@@ -69,6 +72,9 @@ export async function DELETE(
 
   const { id } = await context.params;
   await ensureCloudLayoutsTable();
-  await deleteCloudLayout(id);
+  await deleteCloudLayout(id, {
+    userId: session.user.id,
+    role: session.role,
+  });
   return NextResponse.json({ ok: true });
 }

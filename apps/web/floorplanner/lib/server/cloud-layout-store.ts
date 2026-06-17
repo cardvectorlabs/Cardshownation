@@ -1,6 +1,13 @@
 import { neon } from '@neondatabase/serverless'
 import type { DocumentSlice } from '@floorplanner/lib/persistence'
 
+export type CloudLayoutOwnerRole = 'ADMIN' | 'MODERATOR'
+
+export interface CloudLayoutOwner {
+  userId: string
+  role: CloudLayoutOwnerRole
+}
+
 export interface CloudLayoutRow {
   id: string
   name: string
@@ -19,6 +26,21 @@ export class CloudLayoutConflictError extends Error {
     this.name = 'CloudLayoutConflictError'
     this.currentLayout = currentLayout
   }
+}
+
+export class CloudLayoutQuotaError extends Error {
+  limit: number
+
+  constructor(limit: number) {
+    super(`You have reached the cloud project limit (${limit}). Delete an old project before saving a new one.`)
+    this.name = 'CloudLayoutQuotaError'
+    this.limit = limit
+  }
+}
+
+const MAX_CLOUD_LAYOUTS_PER_OPERATOR: Record<CloudLayoutOwnerRole, number> = {
+  ADMIN: 10,
+  MODERATOR: 10,
 }
 
 function getDatabaseUrl(): string {
@@ -47,6 +69,8 @@ export async function ensureCloudLayoutsTable(): Promise<void> {
       revision integer not null default 1,
       table_count integer not null default 0,
       vendor_count integer not null default 0,
+      owner_user_id text,
+      owner_role text,
       created_at timestamptz not null default now(),
       saved_at timestamptz not null default now()
     )
@@ -55,24 +79,53 @@ export async function ensureCloudLayoutsTable(): Promise<void> {
     alter table floorplanner_cloud_layouts
     add column if not exists revision integer not null default 1
   `
+  await sql`
+    alter table floorplanner_cloud_layouts
+    add column if not exists owner_user_id text
+  `
+  await sql`
+    alter table floorplanner_cloud_layouts
+    add column if not exists owner_role text
+  `
+  await sql`
+    create index if not exists floorplanner_cloud_layouts_owner_idx
+    on floorplanner_cloud_layouts (owner_user_id, owner_role, saved_at desc)
+  `
 }
 
-export async function listCloudLayouts(): Promise<CloudLayoutRow[]> {
+async function countOwnedCloudLayouts(owner: CloudLayoutOwner): Promise<number> {
+  const sql = getSql()
+  const rows = await sql`
+    select count(*)::int as count
+    from floorplanner_cloud_layouts
+    where owner_user_id = ${owner.userId}
+      and owner_role = ${owner.role}
+  `
+  return Number((rows as Array<{ count: number }>)[0]?.count ?? 0)
+}
+
+export async function listCloudLayouts(owner: CloudLayoutOwner): Promise<CloudLayoutRow[]> {
   const sql = getSql()
   const rows = await sql`
     select id, name, saved_at, revision, table_count, vendor_count
     from floorplanner_cloud_layouts
+    where (owner_user_id = ${owner.userId} and owner_role = ${owner.role})
+       or (owner_user_id is null and owner_role is null)
     order by saved_at desc, name asc
   `
   return rows as CloudLayoutRow[]
 }
 
-export async function getCloudLayout(id: string): Promise<CloudLayoutRow | null> {
+export async function getCloudLayout(id: string, owner: CloudLayoutOwner): Promise<CloudLayoutRow | null> {
   const sql = getSql()
   const rows = await sql`
     select id, name, saved_at, revision, table_count, vendor_count, data
     from floorplanner_cloud_layouts
     where id = ${id}
+      and (
+        (owner_user_id = ${owner.userId} and owner_role = ${owner.role})
+        or (owner_user_id is null and owner_role is null)
+      )
     limit 1
   `
   return (rows as CloudLayoutRow[])[0] ?? null
@@ -83,15 +136,42 @@ export async function upsertCloudLayout(input: {
   name: string
   data: DocumentSlice
   expectedRevision: number | null
+  owner: CloudLayoutOwner
 }): Promise<CloudLayoutRow> {
   const sql = getSql()
   const tableCount = Object.keys(input.data.tables).length
   const vendorCount = Object.keys(input.data.vendors).length
 
   if (input.expectedRevision === null) {
+    const currentCount = await countOwnedCloudLayouts(input.owner)
+    const maxLayouts = MAX_CLOUD_LAYOUTS_PER_OPERATOR[input.owner.role]
+    if (currentCount >= maxLayouts) {
+      throw new CloudLayoutQuotaError(maxLayouts)
+    }
+
     const inserted = await sql`
-      insert into floorplanner_cloud_layouts (id, name, data, revision, table_count, vendor_count, saved_at)
-      values (${input.id}, ${input.name}, ${JSON.stringify(input.data)}, 1, ${tableCount}, ${vendorCount}, now())
+      insert into floorplanner_cloud_layouts (
+        id,
+        name,
+        data,
+        revision,
+        table_count,
+        vendor_count,
+        owner_user_id,
+        owner_role,
+        saved_at
+      )
+      values (
+        ${input.id},
+        ${input.name},
+        ${JSON.stringify(input.data)},
+        1,
+        ${tableCount},
+        ${vendorCount},
+        ${input.owner.userId},
+        ${input.owner.role},
+        now()
+      )
       on conflict (id) do nothing
       returning id, name, saved_at, revision, table_count, vendor_count
     `
@@ -99,7 +179,7 @@ export async function upsertCloudLayout(input: {
     const row = (inserted as CloudLayoutRow[])[0]
     if (row) return row
 
-    const current = await getCloudLayout(input.id)
+    const current = await getCloudLayout(input.id, input.owner)
     throw new CloudLayoutConflictError(
       'This cloud layout already exists. Reload it before saving again.',
       current,
@@ -113,16 +193,22 @@ export async function upsertCloudLayout(input: {
         revision = revision + 1,
         table_count = ${tableCount},
         vendor_count = ${vendorCount},
+        owner_user_id = ${input.owner.userId},
+        owner_role = ${input.owner.role},
         saved_at = now()
     where id = ${input.id}
       and revision = ${input.expectedRevision}
+      and (
+        (owner_user_id = ${input.owner.userId} and owner_role = ${input.owner.role})
+        or (owner_user_id is null and owner_role is null)
+      )
     returning id, name, saved_at, revision, table_count, vendor_count
   `
 
   const row = (rows as CloudLayoutRow[])[0]
   if (row) return row
 
-  const current = await getCloudLayout(input.id)
+  const current = await getCloudLayout(input.id, input.owner)
   if (current) {
     throw new CloudLayoutConflictError(
       'This cloud layout changed since you loaded it. Reload it before saving again.',
@@ -136,10 +222,14 @@ export async function upsertCloudLayout(input: {
   )
 }
 
-export async function deleteCloudLayout(id: string): Promise<void> {
+export async function deleteCloudLayout(id: string, owner: CloudLayoutOwner): Promise<void> {
   const sql = getSql()
   await sql`
     delete from floorplanner_cloud_layouts
     where id = ${id}
+      and (
+        (owner_user_id = ${owner.userId} and owner_role = ${owner.role})
+        or (owner_user_id is null and owner_role is null)
+      )
   `
 }

@@ -18,6 +18,7 @@ interface ErrorPayload {
   error?: string
   code?: string
   currentLayout?: CloudLayoutSummary | null
+  limit?: number
 }
 
 export interface CloudSessionStatus {
@@ -32,6 +33,16 @@ export class CloudRevisionConflictError extends Error {
     super(message)
     this.name = 'CloudRevisionConflictError'
     this.currentLayout = currentLayout
+  }
+}
+
+export class CloudQuotaExceededError extends Error {
+  limit: number | null
+
+  constructor(message: string, limit: number | null) {
+    super(message)
+    this.name = 'CloudQuotaExceededError'
+    this.limit = limit
   }
 }
 
@@ -53,6 +64,12 @@ async function assertOk(response: Response): Promise<void> {
     throw new CloudRevisionConflictError(
       payload.error ?? `Request failed (${response.status})`,
       payload.currentLayout ?? null,
+    )
+  }
+  if (response.status === 409 && payload.code === 'quota-exceeded') {
+    throw new CloudQuotaExceededError(
+      payload.error ?? `Request failed (${response.status})`,
+      typeof payload.limit === 'number' ? payload.limit : null,
     )
   }
   throw new Error(payload.error ?? `Request failed (${response.status})`)

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { validateDocumentSlice } from "@floorplanner/lib/document-schema";
 import {
   CloudLayoutConflictError,
+  CloudLayoutQuotaError,
   ensureCloudLayoutsTable,
   isCloudSaveConfigured,
   listCloudLayouts,
@@ -42,7 +43,10 @@ export async function GET(request: NextRequest) {
 
   try {
     await ensureCloudLayoutsTable();
-    const layouts = await listCloudLayouts();
+    const layouts = await listCloudLayouts({
+      userId: session.user.id,
+      role: session.role,
+    });
     return NextResponse.json({ layouts });
   } catch {
     return unavailableResponse("Failed to list floorplans.");
@@ -92,6 +96,10 @@ export async function POST(request: NextRequest) {
       id: body.id ?? randomUUID(),
       name: body.name.trim(),
       data,
+      owner: {
+        userId: session.user.id,
+        role: session.role,
+      },
       expectedRevision:
         typeof body.expectedRevision === "number" ? body.expectedRevision : null,
     });
@@ -104,6 +112,17 @@ export async function POST(request: NextRequest) {
           error: error.message,
           code: "revision-conflict",
           currentLayout: error.currentLayout,
+        },
+        { status: 409 },
+      );
+    }
+
+    if (error instanceof CloudLayoutQuotaError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: "quota-exceeded",
+          limit: error.limit,
         },
         { status: 409 },
       );
