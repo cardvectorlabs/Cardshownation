@@ -199,6 +199,12 @@ export function getActiveLayoutId(): string | null {
   return loadManifest().activeLayoutId
 }
 
+export function getActiveLayoutEntry(): LayoutEntry | null {
+  const manifest = loadManifest()
+  if (!manifest.activeLayoutId) return null
+  return manifest.layouts.find(layout => layout.id === manifest.activeLayoutId) ?? null
+}
+
 export function recoverLayoutsFromStorage(): number {
   const { layoutPrefix, storageKey } = getStorageKeys()
   const existingManifest = loadManifest()

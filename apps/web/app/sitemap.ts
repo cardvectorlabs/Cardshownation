@@ -73,7 +73,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
 
     return [...staticPages, ...statePages, ...cityPages, ...showPages];
   } catch (error) {
-    console.error("[sitemap] falling back to static pages:", error);
+    if (process.env.NODE_ENV === "development") {
+      console.error("[sitemap] falling back to static pages:", error);
+    }
     return staticPages;
   }
 }

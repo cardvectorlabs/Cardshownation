@@ -11,6 +11,7 @@ import dynamic from 'next/dynamic'
 import { useKeyboardShortcuts } from '@floorplanner/hooks/useKeyboardShortcuts'
 import { useEditorStore, selectShowCaseHighlights, selectShowMode, selectShowSectionColors } from '@floorplanner/store/index'
 import { exportFloorplanImage, exportVendorAssignmentsCsv, exportVendorListImage, printShowModeSheet, printVendorManifest, printVendorTableAssignments } from '@floorplanner/lib/export'
+import { hasPendingEditorChanges } from '@floorplanner/lib/editor-save-state'
 import { loadFromLocalStorage, type DocumentSlice } from '@floorplanner/lib/persistence'
 import { configureFloorplannerRuntime } from '@floorplanner/lib/runtime'
 import Toolbar from './Toolbar'
@@ -80,6 +81,12 @@ export default function EditorShell({
   const setShowMode = useEditorStore(s => s.setShowMode)
   const setShowCaseHighlights = useEditorStore(s => s.setShowCaseHighlights)
   const setShowSectionColors = useEditorStore(s => s.setShowSectionColors)
+  const saveStatus = useEditorStore(s => s.saveStatus)
+  const saveError = useEditorStore(s => s.saveError)
+  const activeDocumentSource = useEditorStore(s => s.activeDocumentSource)
+  const currentDocumentHash = useEditorStore(s => s.currentDocumentHash)
+  const lastCloudSyncHash = useEditorStore(s => s.lastCloudSyncHash)
+  const lastFileSyncHash = useEditorStore(s => s.lastFileSyncHash)
   const tables = useEditorStore(s => s.tables)
   const sections = useEditorStore(s => s.sections)
   const vendors = useEditorStore(s => s.vendors)
@@ -88,7 +95,6 @@ export default function EditorShell({
   const doors = useEditorStore(s => s.doors)
   const backgroundImages = useEditorStore(s => s.backgroundImages)
   const settings = useEditorStore(s => s.settings)
-  const setActiveCloudLayout = useEditorStore(s => s.setActiveCloudLayout)
   const [showHelp, setShowHelp] = useState(false)
   const [showFirstRun, setShowFirstRun] = useState(false)
   const [activeTab, setActiveTab] = useState<'layout' | 'vendors' | 'settings'>('layout')
@@ -101,11 +107,14 @@ export default function EditorShell({
     })
     hydrateFromStorage()
     if (!loadFromLocalStorage() && initialCloudLayout) {
-      loadDocumentSlice(initialCloudLayout.data)
-      setActiveCloudLayout({
-        id: initialCloudLayout.id,
-        name: initialCloudLayout.name,
-        revision: initialCloudLayout.revision,
+      loadDocumentSlice(initialCloudLayout.data, {
+        source: 'cloud',
+        label: initialCloudLayout.name,
+        cloudLayout: {
+          id: initialCloudLayout.id,
+          name: initialCloudLayout.name,
+          revision: initialCloudLayout.revision,
+        },
       })
     }
   }, [
@@ -113,9 +122,36 @@ export default function EditorShell({
     hydrateFromStorage,
     initialCloudLayout,
     loadDocumentSlice,
-    setActiveCloudLayout,
     showLabel,
     storageNamespace,
+  ])
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!hasPendingEditorChanges({
+        saveStatus,
+        saveError,
+        activeDocumentSource,
+        currentDocumentHash,
+        lastCloudSyncHash,
+        lastFileSyncHash,
+      })) {
+        return
+      }
+
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [
+    activeDocumentSource,
+    currentDocumentHash,
+    lastCloudSyncHash,
+    lastFileSyncHash,
+    saveError,
+    saveStatus,
   ])
 
   useEffect(() => {

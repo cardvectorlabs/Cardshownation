@@ -8,6 +8,16 @@ export type PublicPortalLink = {
   shortLabel: string;
 };
 
+function isExpectedDynamicRenderError(error: unknown): boolean {
+  if (!error || typeof error !== "object") {
+    return false;
+  }
+
+  const digest = "digest" in error ? String(error.digest) : "";
+  const message = "message" in error ? String(error.message) : "";
+  return digest === "DYNAMIC_SERVER_USAGE" || message.includes("Dynamic server usage");
+}
+
 export async function getPublicPortalLink(): Promise<PublicPortalLink> {
   let moderatorSession: Awaited<ReturnType<typeof getModeratorSession>> = null;
   let promoterSession: Awaited<ReturnType<typeof getPromoterSession>> = null;
@@ -20,7 +30,9 @@ export async function getPublicPortalLink(): Promise<PublicPortalLink> {
       getUserSession(),
     ]);
   } catch (error) {
-    console.error("[public portal] failed to resolve session state", error);
+    if (!isExpectedDynamicRenderError(error)) {
+      console.error("[public portal] failed to resolve session state", error);
+    }
   }
 
   if (moderatorSession) {

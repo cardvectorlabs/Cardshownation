@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useEditorStore } from '@floorplanner/store/index'
+import { getPendingChangesMessage, hasPendingEditorChanges } from '@floorplanner/lib/editor-save-state'
 import { extractDocumentSlice } from '@floorplanner/lib/persistence'
 import {
   clearAllLayouts,
@@ -40,7 +41,7 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
   const saveAs = useEditorStore(s => s.saveCurrentLayoutAs)
   const switchTo = useEditorStore(s => s.switchToLayout)
   const loadDocumentSlice = useEditorStore(s => s.loadDocumentSlice)
-  const setActiveCloudLayout = useEditorStore(s => s.setActiveCloudLayout)
+  const markCloudSaved = useEditorStore(s => s.markCloudSaved)
   const title = useEditorStore(s => s.settings.eventName)
   const activeCloudLayoutId = useEditorStore(s => s.activeCloudLayoutId)
   const activeCloudLayoutName = useEditorStore(s => s.activeCloudLayoutName)
@@ -62,6 +63,21 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
   const [cloudAvailable, setCloudAvailable] = useState(false)
   const [cloudAuthenticated, setCloudAuthenticated] = useState(false)
   const [activeView, setActiveView] = useState<'browser' | 'cloud'>(initialView)
+
+  function confirmDiscardCurrentWork(action: string) {
+    const state = useEditorStore.getState()
+    if (!hasPendingEditorChanges({
+      saveStatus: state.saveStatus,
+      saveError: state.saveError,
+      activeDocumentSource: state.activeDocumentSource,
+      currentDocumentHash: state.currentDocumentHash,
+      lastCloudSyncHash: state.lastCloudSyncHash,
+      lastFileSyncHash: state.lastFileSyncHash,
+    })) {
+      return true
+    }
+    return window.confirm(getPendingChangesMessage(action))
+  }
 
   function refresh() {
     setLayouts(listLayouts())
@@ -154,9 +170,10 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
 
   function handleSwitch(id: string) {
     if (id === activeId) return
-    if (!window.confirm('Switch layout? Unsaved changes to the current layout are auto-saved.')) return
+    if (!confirmDiscardCurrentWork('Open another browser layout')) return
     switchTo(id)
     refresh()
+    onClose()
   }
 
   function handleDelete(id: string, name: string) {
@@ -211,7 +228,7 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
         data: extractDocumentSlice(useEditorStore.getState()),
         expectedRevision: activeCloudLayoutRevision,
       })
-      setActiveCloudLayout({ id: saved.id, name: saved.name, revision: saved.revision })
+      markCloudSaved({ id: saved.id, name: saved.name, revision: saved.revision, savedAt: saved.savedAt })
       setCloudName(saved.name)
       setCloudStatus(`Saved "${saved.name}" to cloud.`)
       await refreshCloudLayouts()
@@ -233,18 +250,22 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
       setCloudError('Sign in to cloud save first.')
       return
     }
-    if (!window.confirm('Load this cloud layout into the editor? Current work will be replaced.')) return
+    if (!confirmDiscardCurrentWork('Load a cloud layout')) return
 
     setCloudLoading(true)
     setCloudError(null)
     setCloudStatus(null)
     try {
       const layout = await loadCloudLayout(id)
-      loadDocumentSlice(layout.data)
-      setActiveCloudLayout({ id: layout.id, name: layout.name, revision: layout.revision })
+      loadDocumentSlice(layout.data, {
+        source: 'cloud',
+        label: layout.name,
+        cloudLayout: { id: layout.id, name: layout.name, revision: layout.revision },
+      })
       setCloudName(layout.name)
       setCloudStatus(`Loaded "${layout.name}" from cloud.`)
       refresh()
+      onClose()
     } catch (error) {
       setCloudError(error instanceof Error ? error.message : 'Failed to load cloud layout.')
     } finally {
@@ -265,7 +286,7 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
     try {
       await deleteCloudLayout(id)
       if (activeCloudLayoutId === id) {
-        setActiveCloudLayout(null)
+        useEditorStore.getState().setActiveCloudLayout(null)
       }
       setCloudStatus(`Deleted "${name}" from cloud.`)
       await refreshCloudLayouts()
@@ -483,6 +504,9 @@ export default function LayoutManagerModal({ onClose, initialView = 'browser' }:
               {cloudError && <p className="text-xs text-red-300">{cloudError}</p>}
             </div>
             <div className="flex-1 overflow-y-auto p-4 space-y-1">
+              {cloudLoading && cloudAuthenticated && (
+                <p className="py-6 text-center text-sm text-gray-500">Loading cloud layouts...</p>
+              )}
               {cloudAvailable && !cloudAuthenticated && (
                 <p className="text-gray-500 text-sm text-center py-6">Sign in to list server-backed layouts.</p>
               )}

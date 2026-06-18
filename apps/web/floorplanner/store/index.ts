@@ -22,7 +22,7 @@ import type { ImportSession, FieldMapping, ConflictResolution } from '@floorplan
 import { DEFAULT_SETTINGS, DRAFT_LAYOUT_ID } from '@floorplanner/lib/defaults'
 import {
   loadFromLocalStorage, extractDocumentSlice, saveToLocalStorage, clearLocalStorage,
-  saveLayoutAs, loadLayout, restoreBackgroundImagePayloads, saveToFile as saveToFileLib, parseFilePayload,
+  saveLayoutAs, loadLayout, restoreBackgroundImagePayloads, saveToFile as saveToFileLib, parseFilePayload, getActiveLayoutEntry,
   type DocumentSlice,
 } from '@floorplanner/lib/persistence'
 import { getFloorplannerStorageNamespace } from '@floorplanner/lib/runtime'
@@ -78,11 +78,20 @@ function applyDocumentSliceToState(state: EditorState, slice: DocumentSlice): vo
   state.history = { ...EMPTY_HISTORY, past: [], future: [] }
 }
 
+function createDocumentHash(slice: DocumentSlice): string {
+  try {
+    return JSON.stringify(slice)
+  } catch {
+    return `unserializable:${Date.now()}`
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // TYPES
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type ActiveTool = 'select' | 'place-table' | 'place-row' | 'draw-room' | 'draw-room-circle' | 'draw-room-freehand' | 'split-room' | 'place-door' | 'measure'
+export type DocumentSource = 'browser' | 'cloud' | 'file'
 
 type RowBuilderState = {
   tableCount: number
@@ -180,11 +189,19 @@ export interface EditorState {
   switchToLayout: (layoutId: string) => boolean
   saveLayoutToFile: () => void
   loadLayoutFromFile: (file: File) => Promise<string | null>
-  loadDocumentSlice: (slice: DocumentSlice) => void
+  loadDocumentSlice: (
+    slice: DocumentSlice,
+    options?: {
+      source?: DocumentSource
+      label?: string | null
+      cloudLayout?: { id: string; name: string; revision?: number | null } | null
+    },
+  ) => void
   activeCloudLayoutId: string | null
   activeCloudLayoutName: string | null
   activeCloudLayoutRevision: number | null
   setActiveCloudLayout: (layout: { id: string; name: string; revision?: number | null } | null) => void
+  markCloudSaved: (layout: { id: string; name: string; revision?: number | null; savedAt?: string | null }) => void
 
   // ── CSV Import actions ─────────────────────────────────────────────────
   importSession: ImportSession | null
@@ -202,6 +219,14 @@ export interface EditorState {
   // ── Persistence status (autosave feedback) ─────────────────────────────
   saveStatus: 'idle' | 'saving' | 'saved' | 'error'
   saveError: 'quota-exceeded' | 'unknown' | null
+  currentDocumentHash: string
+  activeDocumentSource: DocumentSource
+  activeDocumentLabel: string | null
+  lastLocalSaveAt: string | null
+  lastCloudSaveAt: string | null
+  lastFileSaveAt: string | null
+  lastCloudSyncHash: string | null
+  lastFileSyncHash: string | null
   hasHydratedFromStorage: boolean
   hydrateFromStorage: () => void
 }
@@ -244,6 +269,24 @@ export const useEditorStore = create<EditorState>()(
     importSession: null,
     saveStatus: 'idle' as const,
     saveError: null,
+    currentDocumentHash: createDocumentHash(extractDocumentSlice({
+      tables: {},
+      rows: {},
+      sections: {},
+      vendors: {},
+      vendorAssignments: {},
+      room: null,
+      doors: {},
+      settings: DEFAULT_SETTINGS,
+      backgroundImages: {},
+    })),
+    activeDocumentSource: 'browser' as const,
+    activeDocumentLabel: null,
+    lastLocalSaveAt: null,
+    lastCloudSaveAt: null,
+    lastFileSaveAt: null,
+    lastCloudSyncHash: null,
+    lastFileSyncHash: null,
     hasHydratedFromStorage: false,
     activeCloudLayoutId: null,
     activeCloudLayoutName: null,
@@ -255,10 +298,17 @@ export const useEditorStore = create<EditorState>()(
       if (get().hasHydratedFromStorage || typeof window === 'undefined') return
 
       const slice = loadFromLocalStorage()
+      const activeLayout = getActiveLayoutEntry()
       set(state => {
         state.hasHydratedFromStorage = true
         if (!slice) return
         applyDocumentSliceToState(state, slice)
+        state.currentDocumentHash = createDocumentHash(slice)
+        state.activeDocumentSource = 'browser'
+        state.activeDocumentLabel = activeLayout?.name ?? null
+        state.lastLocalSaveAt = activeLayout?.savedAt ?? new Date().toISOString()
+        state.lastCloudSyncHash = null
+        state.lastFileSyncHash = null
       })
       if (slice) {
         void restoreBackgroundImagePayloads(slice).then(restored => {
@@ -696,6 +746,7 @@ export const useEditorStore = create<EditorState>()(
     },
 
     clearLayout() {
+      const savedAt = new Date().toISOString()
       set(state => {
         state.tables = {}
         state.rows = {}
@@ -718,6 +769,12 @@ export const useEditorStore = create<EditorState>()(
         state.showSectionColors = false
         state.reviewUnassignedTables = false
         state.history = { ...EMPTY_HISTORY, past: [], future: [] }
+        state.currentDocumentHash = createDocumentHash(extractDocumentSlice(state))
+        state.activeDocumentSource = 'browser'
+        state.activeDocumentLabel = null
+        state.lastLocalSaveAt = savedAt
+        state.lastCloudSyncHash = null
+        state.lastFileSyncHash = null
         state.activeCloudLayoutId = null
         state.activeCloudLayoutName = null
         state.activeCloudLayoutRevision = null
@@ -728,7 +785,21 @@ export const useEditorStore = create<EditorState>()(
     saveCurrentLayoutAs(name) {
       const state = get()
       const slice = extractDocumentSlice(state)
-      return saveLayoutAs(name, slice)
+      const id = saveLayoutAs(name, slice)
+      const savedAt = new Date().toISOString()
+      const hash = createDocumentHash(slice)
+      set(draft => {
+        draft.activeDocumentSource = 'browser'
+        draft.activeDocumentLabel = name
+        draft.lastLocalSaveAt = savedAt
+        draft.currentDocumentHash = hash
+        draft.lastCloudSyncHash = null
+        draft.lastFileSyncHash = null
+        draft.activeCloudLayoutId = null
+        draft.activeCloudLayoutName = null
+        draft.activeCloudLayoutRevision = null
+      })
+      return id
     },
 
     saveLayoutToFile() {
@@ -749,6 +820,14 @@ export const useEditorStore = create<EditorState>()(
           })()
         : 'floorplan'
       saveToFileLib(slice, title || fallbackName)
+      set(draft => {
+        draft.lastFileSaveAt = new Date().toISOString()
+        draft.lastFileSyncHash = createDocumentHash(slice)
+        if (draft.activeDocumentSource !== 'cloud') {
+          draft.activeDocumentSource = 'file'
+          draft.activeDocumentLabel = title || fallbackName
+        }
+      })
     },
 
     async loadLayoutFromFile(file) {
@@ -761,6 +840,12 @@ export const useEditorStore = create<EditorState>()(
       }
       set(state => {
         applyDocumentSliceToState(state, slice)
+        state.currentDocumentHash = createDocumentHash(slice)
+        state.activeDocumentSource = 'file'
+        state.activeDocumentLabel = file.name.replace(/\.json$/i, '')
+        state.lastFileSaveAt = new Date().toISOString()
+        state.lastFileSyncHash = state.currentDocumentHash
+        state.lastCloudSyncHash = null
         state.activeCloudLayoutId = null
         state.activeCloudLayoutName = null
         state.activeCloudLayoutRevision = null
@@ -768,9 +853,24 @@ export const useEditorStore = create<EditorState>()(
       return null
     },
 
-    loadDocumentSlice(slice) {
+    loadDocumentSlice(slice, options) {
+      const hash = createDocumentHash(slice)
       set(state => {
         applyDocumentSliceToState(state, slice)
+        state.currentDocumentHash = hash
+        state.activeDocumentSource = options?.source ?? 'browser'
+        state.activeDocumentLabel = options?.label ?? null
+        state.lastCloudSyncHash = options?.source === 'cloud' ? hash : null
+        state.lastFileSyncHash = options?.source === 'file' ? hash : null
+        if (options?.source === 'cloud') {
+          state.lastCloudSaveAt = new Date().toISOString()
+        }
+        if (options?.source === 'file') {
+          state.lastFileSaveAt = new Date().toISOString()
+        }
+        state.activeCloudLayoutId = options?.cloudLayout?.id ?? null
+        state.activeCloudLayoutName = options?.cloudLayout?.name ?? null
+        state.activeCloudLayoutRevision = options?.cloudLayout?.revision ?? null
       })
     },
 
@@ -782,11 +882,31 @@ export const useEditorStore = create<EditorState>()(
       })
     },
 
+    markCloudSaved(layout) {
+      set(state => {
+        state.activeCloudLayoutId = layout.id
+        state.activeCloudLayoutName = layout.name
+        state.activeCloudLayoutRevision = layout.revision ?? null
+        state.activeDocumentSource = 'cloud'
+        state.activeDocumentLabel = layout.name
+        state.lastCloudSaveAt = layout.savedAt ?? new Date().toISOString()
+        state.lastCloudSyncHash = state.currentDocumentHash
+      })
+    },
+
     switchToLayout(layoutId) {
       const slice = loadLayout(layoutId)
       if (!slice) return false
+      const activeLayout = getActiveLayoutEntry()
+      const hash = createDocumentHash(slice)
       set(state => {
         applyDocumentSliceToState(state, slice)
+        state.currentDocumentHash = hash
+        state.activeDocumentSource = 'browser'
+        state.activeDocumentLabel = activeLayout?.name ?? null
+        state.lastLocalSaveAt = activeLayout?.savedAt ?? new Date().toISOString()
+        state.lastCloudSyncHash = null
+        state.lastFileSyncHash = null
         state.activeCloudLayoutId = null
         state.activeCloudLayoutName = null
         state.activeCloudLayoutRevision = null
@@ -823,14 +943,19 @@ useEditorStore.subscribe((state, prev) => {
     state.settings        !== prev.settings
   if (!docChanged) return
 
+  const nextHash = createDocumentHash(extractDocumentSlice(state))
   if (_saveTimer) clearTimeout(_saveTimer)
-  useEditorStore.setState({ saveStatus: 'saving', saveError: null })
+  useEditorStore.setState({ saveStatus: 'saving', saveError: null, currentDocumentHash: nextHash })
   _saveTimer = setTimeout(() => {
     const err = saveToLocalStorage(extractDocumentSlice(state))
     if (err) {
       useEditorStore.setState({ saveStatus: 'error', saveError: err })
     } else {
-      useEditorStore.setState({ saveStatus: 'saved', saveError: null })
+      useEditorStore.setState({
+        saveStatus: 'saved',
+        saveError: null,
+        lastLocalSaveAt: new Date().toISOString(),
+      })
       if (_savedClearTimer) clearTimeout(_savedClearTimer)
       _savedClearTimer = setTimeout(() => {
         useEditorStore.setState({ saveStatus: 'idle' })
