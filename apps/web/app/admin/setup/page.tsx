@@ -8,7 +8,7 @@ import {
   MIN_ADMIN_SESSION_SECRET_LENGTH,
   startAdminSession,
 } from "@/lib/admin-auth";
-import { hasAnyAdminUsers, registerInitialAdmin } from "@/lib/admins";
+import { hasAnyAdminUsers, MIN_ADMIN_PASSWORD_LENGTH, registerInitialAdmin } from "@/lib/admins";
 import { getRequestIp } from "@/lib/request-ip";
 import { consumeRateLimit, resetRateLimit } from "@/lib/rate-limit";
 import { rethrowIfRedirectError } from "@/lib/next-control-flow";
@@ -74,7 +74,7 @@ async function handleSetup(formData: FormData) {
   if (!email || !isValidEmail(email)) {
     redirect("/admin/setup?error=email");
   }
-  if (password.length < 8) {
+  if (password.length < MIN_ADMIN_PASSWORD_LENGTH) {
     redirect("/admin/setup?error=password");
   }
   if (password !== confirmPassword) {
@@ -134,7 +134,7 @@ export default async function AdminSetupPage({
           : sp.error === "email"
             ? "Enter a valid email address."
             : sp.error === "password"
-              ? "Password must be at least 8 characters."
+              ? `Password must be at least ${MIN_ADMIN_PASSWORD_LENGTH} characters.`
               : sp.error === "confirm"
                 ? "Password and confirmation do not match."
                 : sp.error === "setupcode"
@@ -193,7 +193,7 @@ export default async function AdminSetupPage({
                   name="password"
                   type="password"
                   required
-                  minLength={8}
+                  minLength={MIN_ADMIN_PASSWORD_LENGTH}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
                 />
               </div>
@@ -206,7 +206,7 @@ export default async function AdminSetupPage({
                   name="confirmPassword"
                   type="password"
                   required
-                  minLength={8}
+                  minLength={MIN_ADMIN_PASSWORD_LENGTH}
                   className="w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-900 focus:border-brand-400 focus:outline-none"
                 />
               </div>

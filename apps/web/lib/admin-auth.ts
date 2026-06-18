@@ -41,7 +41,7 @@ export async function getAdminSession() {
     where: { id: payload.uid },
   });
 
-  if (!user || user.role !== "ADMIN") {
+  if (!user || user.role !== "ADMIN" || payload.sv !== user.sessionVersion) {
     return null;
   }
 
@@ -67,7 +67,18 @@ export async function startAdminSession(userId: string) {
     throw new Error("Admin auth is not configured.");
   }
 
-  const token = await createAdminSessionToken(userId, secret);
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      role: true,
+      sessionVersion: true,
+    },
+  });
+  if (!user || user.role !== "ADMIN") {
+    throw new Error("Admin account not found.");
+  }
+
+  const token = await createAdminSessionToken(userId, user.sessionVersion, secret);
   const cookieStore = await cookies();
   cookieStore.set(ADMIN_COOKIE_NAME, token, {
     httpOnly: true,

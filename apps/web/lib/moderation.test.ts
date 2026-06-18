@@ -13,6 +13,8 @@ let validateUserSessionSecret: typeof import("./user-auth").validateUserSessionS
 let MIN_USER_SESSION_SECRET_LENGTH: typeof import("./user-auth").MIN_USER_SESSION_SECRET_LENGTH;
 let validateAdminSessionSecret: typeof import("./admin-auth").validateAdminSessionSecret;
 let MIN_ADMIN_SESSION_SECRET_LENGTH: typeof import("./admin-auth").MIN_ADMIN_SESSION_SECRET_LENGTH;
+let createAdminSessionToken: typeof import("./admin-session").createAdminSessionToken;
+let verifyAdminSessionToken: typeof import("./admin-session").verifyAdminSessionToken;
 let createPasswordResetToken: typeof import("./password-reset-token").createPasswordResetToken;
 let consumePasswordResetToken: typeof import("./password-reset-token").consumePasswordResetToken;
 let createVerificationToken: typeof import("./verification-token").createVerificationToken;
@@ -55,6 +57,7 @@ before(async () => {
   ));
   ({ validateUserSessionSecret, MIN_USER_SESSION_SECRET_LENGTH } = await import("./user-auth"));
   ({ validateAdminSessionSecret, MIN_ADMIN_SESSION_SECRET_LENGTH } = await import("./admin-auth"));
+  ({ createAdminSessionToken, verifyAdminSessionToken } = await import("./admin-session"));
   ({ createPasswordResetToken, consumePasswordResetToken } = await import("./password-reset-token"));
   ({ createVerificationToken, consumeVerificationToken } = await import("./verification-token"));
   ({ hashOpaqueToken } = await import("./token-hash"));
@@ -174,6 +177,32 @@ test("validateAdminSessionSecret accepts trimmed strong secrets", () => {
     secret: "x".repeat(MIN_ADMIN_SESSION_SECRET_LENGTH),
     error: null,
   });
+});
+
+test("createAdminSessionToken returns a verifiable admin token with session version", async () => {
+  const token = await createAdminSessionToken("admin-123", 4, "super-secret");
+  const payload = await verifyAdminSessionToken(token, "super-secret");
+
+  assert.ok(payload);
+  assert.equal(payload.uid, "admin-123");
+  assert.equal(payload.aud, "card-show-nation-admin");
+  assert.equal(payload.sv, 4);
+  assert.equal(payload.v, 1);
+});
+
+test("verifyAdminSessionToken rejects tampered admin tokens", async () => {
+  const token = await createAdminSessionToken("admin-123", 1, "super-secret");
+  const [payloadSegment, signatureSegment] = token.split(".");
+  const decodedPayload = JSON.parse(Buffer.from(payloadSegment, "base64url").toString("utf8"));
+  decodedPayload.sv = 99;
+  const tamperedPayloadSegment = Buffer.from(JSON.stringify(decodedPayload), "utf8").toString(
+    "base64url"
+  );
+  const tamperedToken = `${tamperedPayloadSegment}.${signatureSegment}`;
+
+  const payload = await verifyAdminSessionToken(tamperedToken, "super-secret");
+
+  assert.equal(payload, null);
 });
 
 test("createPasswordResetToken stores a hashed token and consumePasswordResetToken looks it up by hash", async () => {

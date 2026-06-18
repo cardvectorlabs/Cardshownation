@@ -97,7 +97,7 @@ async function handleSignup(formData: FormData) {
   } catch (error) {
     rethrowIfRedirectError(error);
     await delay(750);
-    redirect("/account/signup?error=exists");
+    redirect("/account/signup?error=try-again");
   }
 }
 
@@ -144,9 +144,7 @@ export default async function UserSignupPage({
   }
 
   const errorMessage =
-    sp.error === "exists"
-      ? "An account already exists for that email."
-      : sp.error === "disabled"
+    sp.error === "disabled"
         ? secretStatus.error === "too_short"
           ? `USER_SESSION_SECRET must be at least ${MIN_USER_SESSION_SECRET_LENGTH} characters.`
           : "User accounts are disabled until USER_SESSION_SECRET is set on the server."
@@ -154,6 +152,8 @@ export default async function UserSignupPage({
           ? "Too many attempts. Wait a bit and try again."
           : sp.error === "validation"
             ? `Check your information. Passwords must match and be ${MIN_PASSWORD_LENGTH}-${MAX_PASSWORD_LENGTH} characters.`
+            : sp.error === "try-again"
+              ? "We couldn't create that account right now. Double-check your information or try signing in / resetting your password if you may already have an account."
             : null;
 
   return (

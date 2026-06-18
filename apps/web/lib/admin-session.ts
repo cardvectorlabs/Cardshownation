@@ -7,6 +7,7 @@ type AdminSessionPayload = {
   aud: string;
   exp: number;
   iat: number;
+  sv: number;
   uid: string;
   v: number;
 };
@@ -55,6 +56,7 @@ function decodePayload(payloadSegment: string) {
       parsed.v !== 1 ||
       typeof parsed.exp !== "number" ||
       typeof parsed.iat !== "number" ||
+      typeof parsed.sv !== "number" ||
       typeof parsed.uid !== "string" ||
       parsed.uid.length === 0
     ) {
@@ -75,6 +77,7 @@ async function signPayload(payloadSegment: string, secret: string) {
 
 export async function createAdminSessionToken(
   userId: string,
+  sessionVersion: number,
   secret: string,
   maxAgeSeconds = ADMIN_SESSION_MAX_AGE_SECONDS
 ) {
@@ -83,6 +86,7 @@ export async function createAdminSessionToken(
     aud: SESSION_AUDIENCE,
     exp: now + maxAgeSeconds,
     iat: now,
+    sv: sessionVersion,
     uid: userId,
     v: 1,
   };

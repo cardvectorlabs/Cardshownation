@@ -2,6 +2,8 @@ import { db } from "@/lib/db";
 import { writeAuditLog } from "@/lib/audit-log";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
 
+export const MIN_ADMIN_PASSWORD_LENGTH = 12;
+
 type RegisterAdminInput = {
   email: string;
   password: string;
@@ -28,6 +30,11 @@ export async function authenticateAdmin(email: string, password: string) {
 
 export async function registerInitialAdmin(input: RegisterAdminInput) {
   const email = input.email.trim().toLowerCase();
+
+  if (input.password.length < MIN_ADMIN_PASSWORD_LENGTH) {
+    throw new Error(`Admin passwords must be at least ${MIN_ADMIN_PASSWORD_LENGTH} characters.`);
+  }
+
   const [existingUser, adminCount, passwordHash] = await Promise.all([
     db.user.findUnique({ where: { email } }),
     db.user.count({ where: { role: "ADMIN" } }),
@@ -85,7 +92,12 @@ export async function updateAdminPassword(input: {
   const passwordHash = await hashPassword(input.nextPassword);
   await db.user.update({
     where: { id: user.id },
-    data: { passwordHash },
+    data: {
+      passwordHash,
+      sessionVersion: {
+        increment: 1,
+      },
+    },
   });
 
   await writeAuditLog({

@@ -113,7 +113,7 @@ async function handleSignup(formData: FormData) {
   } catch (error) {
     rethrowIfRedirectError(error);
     await delay(750);
-    redirect("/promoter/signup?error=exists");
+    redirect("/promoter/signup?error=try-again");
   }
 }
 
@@ -158,14 +158,14 @@ export default async function PromoterSignupPage({
   }
 
   const errorMessage =
-    sp.error === "exists"
-      ? "A promoter account already exists for that email."
-      : sp.error === "disabled"
+    sp.error === "disabled"
         ? "Promoter signup is temporarily unavailable."
       : sp.error === "rate"
         ? "Too many attempts. Wait a bit and try again."
       : sp.error === "validation"
         ? "Check your information. Passwords must match and be at least 8 characters."
+        : sp.error === "try-again"
+          ? "We couldn't create that promoter account right now. Double-check your information or try signing in / resetting your password if you may already have an account."
         : null;
 
   return (
