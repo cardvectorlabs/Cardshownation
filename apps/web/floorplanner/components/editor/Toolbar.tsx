@@ -13,17 +13,15 @@ interface MenuItem {
   shortcut?: string
   action?: () => void
   disabled?: boolean
-  section?: string
-}
-
-interface QuickActionGroup {
-  label: string
-  tone?: 'default' | 'primary'
-  items: MenuItem[]
 }
 
 function useMenuItems(
   startNewLayout: () => void,
+  openBrowserLayouts: () => void,
+  openCloudLayouts: () => void,
+  openFilePicker: () => void,
+  saveToCloud: () => void,
+  saveToFile: () => void,
   openImport: () => void,
   openExport: () => void,
   openHelp: () => void,
@@ -46,9 +44,25 @@ function useMenuItems(
       {
         label: 'New Layout',
         action: startNewLayout,
-        section: 'Project',
       },
-      { label: 'Import Vendors...', action: openImport, section: 'Data' },
+      {
+        label: 'Open Browser Saves...',
+        action: openBrowserLayouts,
+      },
+      {
+        label: 'Open Cloud Saves...',
+        action: openCloudLayouts,
+      },
+      { label: 'Open File...', action: openFilePicker },
+      {
+        label: 'Save to Cloud',
+        action: saveToCloud,
+      },
+      {
+        label: 'Save to File...',
+        action: saveToFile,
+      },
+      { label: 'Import Vendors...', action: openImport },
       {
         label: 'Clear All Vendors',
         action: () => {
@@ -56,9 +70,8 @@ function useMenuItems(
             clearVendors()
           }
         },
-        section: 'Data',
       },
-      { label: 'Export...', action: openExport, section: 'Data' },
+      { label: 'Export...', action: openExport },
     ],
     Tools: [
       { label: 'Select', shortcut: 'S', action: () => setTool('select') },
@@ -118,7 +131,6 @@ export default function Toolbar() {
   const [layoutView, setLayoutView] = useState<'browser' | 'cloud'>('browser')
   const [showHelp, setShowHelp] = useState(false)
   const [openMenu, setOpenMenu] = useState<string | null>(null)
-  const [openQuickAction, setOpenQuickAction] = useState<string | null>(null)
   const [fileError, setFileError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const toolbarRef = useRef<HTMLDivElement>(null)
@@ -143,7 +155,6 @@ export default function Toolbar() {
     if (!window.confirm('Start a new layout? Current work will be cleared.')) return
     useEditorStore.getState().clearLayout()
     setOpenMenu(null)
-    setOpenQuickAction(null)
   }, [confirmDiscardCurrentWork])
 
   const handleFileChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -157,12 +168,41 @@ export default function Toolbar() {
   const openFilePicker = useCallback(() => {
     if (!confirmDiscardCurrentWork('Open a file')) return
     setOpenMenu(null)
-    setOpenQuickAction(null)
     fileInputRef.current?.click()
   }, [confirmDiscardCurrentWork])
 
+  const openBrowserLayouts = useCallback(() => {
+    if (!confirmDiscardCurrentWork('Open browser saves')) return
+    setLayoutView('browser')
+    setShowLayouts(true)
+    setOpenMenu(null)
+  }, [confirmDiscardCurrentWork])
+
+  const openCloudLayouts = useCallback(() => {
+    if (!confirmDiscardCurrentWork('Open cloud saves')) return
+    setLayoutView('cloud')
+    setShowLayouts(true)
+    setOpenMenu(null)
+  }, [confirmDiscardCurrentWork])
+
+  const saveToCloud = useCallback(() => {
+    setLayoutView('cloud')
+    setShowLayouts(true)
+    setOpenMenu(null)
+  }, [])
+
+  const saveToFile = useCallback(() => {
+    useEditorStore.getState().saveLayoutToFile()
+    setOpenMenu(null)
+  }, [])
+
   const menus = useMenuItems(
     handleStartNewLayout,
+    openBrowserLayouts,
+    openCloudLayouts,
+    openFilePicker,
+    saveToCloud,
+    saveToFile,
     () => { setShowImport(true); setOpenMenu(null) },
     () => { setShowExport(true); setOpenMenu(null) },
     () => { setShowHelp(true); setOpenMenu(null) },
@@ -183,13 +223,11 @@ export default function Toolbar() {
       if (!(target instanceof Node)) return
       if (toolbarRef.current?.contains(target)) return
       setOpenMenu(null)
-      setOpenQuickAction(null)
     }
 
     function handleEscape(event: KeyboardEvent) {
       if (event.key !== 'Escape') return
       setOpenMenu(null)
-      setOpenQuickAction(null)
     }
 
     document.addEventListener('mousedown', handlePointerDown)
@@ -202,7 +240,6 @@ export default function Toolbar() {
   }, [])
 
   function toggleMenu(name: string) {
-    setOpenQuickAction(null)
     setOpenMenu(prev => prev === name ? null : name)
   }
 
@@ -215,41 +252,6 @@ export default function Toolbar() {
     lastCloudSyncHash,
     lastFileSyncHash,
   })
-  const quickActions: QuickActionGroup[] = [
-    {
-      label: 'Open',
-      items: [
-        {
-          label: 'Browser Saves...',
-          action: () => {
-            if (!confirmDiscardCurrentWork('Open browser saves')) return
-            setLayoutView('browser')
-            setShowLayouts(true)
-            setOpenQuickAction(null)
-          },
-        },
-        {
-          label: 'Cloud Saves...',
-          action: () => {
-            if (!confirmDiscardCurrentWork('Open cloud saves')) return
-            setLayoutView('cloud')
-            setShowLayouts(true)
-            setOpenQuickAction(null)
-          },
-        },
-        { label: 'Open File...', action: openFilePicker },
-      ],
-    },
-    {
-      label: 'Save',
-      tone: 'primary',
-      items: [
-        { label: 'Save to Cloud', action: () => { setLayoutView('cloud'); setShowLayouts(true); setOpenQuickAction(null) } },
-        { label: 'Save to File...', action: () => { useEditorStore.getState().saveLayoutToFile(); setOpenQuickAction(null) } },
-        { label: 'Export...', action: () => { setShowExport(true); setOpenQuickAction(null) } },
-      ],
-    },
-  ]
 
   return (
     <div className="shrink-0">
@@ -295,48 +297,6 @@ export default function Toolbar() {
                 Unsynced changes
               </span>
             )}
-            <div className="flex items-center gap-2">
-              {quickActions.map(group => (
-                <div key={group.label} className="relative">
-                  <button
-                    onClick={() => {
-                      setOpenMenu(null)
-                      setOpenQuickAction(prev => prev === group.label ? null : group.label)
-                    }}
-                    className={[
-                      'flex items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition-colors sm:px-4',
-                      group.tone === 'primary'
-                        ? 'border-emerald-300 bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                        : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-50',
-                    ].join(' ')}
-                  >
-                    <span>{group.label}</span>
-                    <svg className="h-3 w-3" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.6">
-                      <path d="M2.5 4.5L6 8l3.5-3.5" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  </button>
-
-                  {openQuickAction === group.label && (
-                    <div className="absolute right-0 top-[calc(100%+8px)] z-30 min-w-[210px] rounded-2xl border border-slate-200 bg-white p-2 shadow-xl">
-                      {group.items.map(item => (
-                        <button
-                          key={item.label}
-                          onClick={() => item.action?.()}
-                          className="flex w-full items-center justify-between rounded-xl px-3 py-2 text-left text-sm text-slate-700 transition-colors hover:bg-slate-50"
-                        >
-                          <span>{item.label}</span>
-                          {item.shortcut && (
-                            <kbd className="text-xs font-mono text-slate-400">
-                              {item.shortcut}
-                            </kbd>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
 
             <button
               onClick={() => setShowMode(true)}
@@ -379,11 +339,6 @@ export default function Toolbar() {
         <div className="flex h-9 items-center gap-1 overflow-x-auto border-b border-gray-200 bg-gray-50 px-4">
           {activeItems.map(item => (
             <div key={item.label} className="flex items-center gap-1">
-              {item.section && (
-                <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-400">
-                  {item.section}
-                </span>
-              )}
               <button
                 onClick={() => {
                   if (!item.disabled && item.action) item.action()
