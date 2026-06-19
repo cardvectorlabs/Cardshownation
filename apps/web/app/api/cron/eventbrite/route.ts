@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { runEventbriteImport } from "@/lib/eventbrite-import";
+import { runScheduledImports } from "@/lib/scheduled-imports";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -18,6 +18,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const result = await runEventbriteImport();
+  const result = await runScheduledImports();
   return NextResponse.json(result);
 }

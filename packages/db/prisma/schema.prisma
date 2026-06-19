@@ -295,6 +295,22 @@ model ImportLog {
   @@index([source, createdAt])
 }
 
+model AutoImportSource {
+  id            String   @id @default(cuid())
+  name          String
+  url           String   @unique
+  city          String?
+  state         String?
+  organizerName String?
+  categories    String[]
+  facebookUrl   String?
+  active        Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([active, createdAt])
+}
+
 model UserStateSubscription {
   id           String   @id @default(cuid())
   userId       String

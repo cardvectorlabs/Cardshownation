@@ -43,6 +43,40 @@ NEXT_PUBLIC_AD_SLOT_SHOW_SIDEBAR="0987654321"
 - `NEXT_PUBLIC_AD_SLOT_HOME_INLINE` renders a single in-content ad on the homepage.
 - `NEXT_PUBLIC_AD_SLOT_SHOW_SIDEBAR` renders a sidebar ad on show detail pages.
 
+## Auto-import sources
+
+The admin `Auto-Import` page can now pull from:
+
+- Eventbrite via `EVENTBRITE_API_KEY`
+- Public website or Facebook URLs via `PUBLIC_SHOW_IMPORT_SOURCES_JSON`
+
+Example:
+
+```json
+[
+  {
+    "name": "Nebraska Card Shows",
+    "url": "https://example.com/shows",
+    "city": "Omaha",
+    "state": "NE",
+    "organizerName": "Nebraska Card Shows",
+    "categories": ["Sports Cards", "Pokemon"]
+  },
+  {
+    "name": "KC Public Facebook Events",
+    "url": "https://www.facebook.com/some-public-page-or-post",
+    "city": "Kansas City",
+    "state": "MO"
+  }
+]
+```
+
+Notes:
+
+- Only public pages that can be fetched without logging in are supported.
+- Structured pages with JSON-LD `Event` data import best.
+- For looser pages, set fallback `city` and `state` so the importer can create a reviewable pending submission.
+
 ## Live database mode
 
 When you are ready to switch to a real database:
