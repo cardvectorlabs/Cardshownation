@@ -77,6 +77,12 @@ export default async function PromoterPortalPage({
               >
                 Add show
               </Link>
+              <Link
+                href="/promoter/upload"
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+              >
+                Upload CSV
+              </Link>
               <form action={logoutPromoter}>
                 <button
                   type="submit"
@@ -211,6 +217,12 @@ export default async function PromoterPortalPage({
               className="mt-5 inline-flex items-center justify-center rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-950 transition-colors hover:bg-slate-100"
             >
               Add show with flyer
+            </Link>
+            <Link
+              href="/promoter/upload"
+              className="mt-3 inline-flex items-center justify-center rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition-colors hover:bg-white/10"
+            >
+              Bulk upload CSV
             </Link>
           </section>
         </aside>

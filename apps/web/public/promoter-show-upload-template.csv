@@ -1,0 +1,2 @@
+title,startDate,endDate,startTimeLabel,endTimeLabel,city,state,venueName,venueAddress,categories,description,tableCount,vendorDetails,websiteUrl,facebookUrl,isFree,admissionPrice,admissionNotes,parkingInfo
+Example Card Show,2026-08-15,2026-08-15,9:00 AM,3:00 PM,Overland Park,KS,Convention Center,123 Main St,"Sports Cards,Pokemon",Monthly local card show,80,Vendor tables available,https://example.com/show,https://facebook.com/example-show,No,5,Kids under 12 free,Free parking in south lot

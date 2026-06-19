@@ -3,6 +3,7 @@ import { isFixtureMode } from "@/lib/data-mode";
 import { saveFlyerImage } from "@/lib/flyers";
 import { hashPassword, verifyPassword } from "@/lib/passwords";
 import { createApprovedShowFromPayload, createShowSubmission } from "@/lib/submissions";
+import { SHOW_CATEGORIES } from "@/lib/shows";
 import { normalizeExternalUrl } from "@/lib/url";
 
 type RegisterPromoterInput = {
@@ -66,8 +67,104 @@ export type PromoterShowDefaults = {
   parkingInfo: string | null;
 };
 
+export type PromoterBulkCsvRow = {
+  rowNumber: number;
+  title?: string;
+  startDate?: string;
+  endDate?: string;
+  startTimeLabel?: string;
+  endTimeLabel?: string;
+  city?: string;
+  state?: string;
+  venueName?: string;
+  venueAddress?: string;
+  categories?: string;
+  description?: string;
+  tableCount?: string;
+  vendorDetails?: string;
+  websiteUrl?: string;
+  facebookUrl?: string;
+  isFree?: string;
+  admissionPrice?: string;
+  admissionNotes?: string;
+  parkingInfo?: string;
+};
+
+export type PromoterBulkUploadResult = {
+  approved: number;
+  pending: number;
+  skipped: number;
+  errors: { row: number; message: string }[];
+};
+
+const promoterCategoryAliases: Record<string, string> = {
+  sports: "Sports Cards",
+  "sports cards": "Sports Cards",
+  pokemon: "Pokemon",
+  tcg: "TCG",
+  mixed: "Mixed",
+  memorabilia: "Memorabilia",
+  comics: "Comics",
+  "trade night": "Trade Night",
+  "autograph guests": "Autograph Guests",
+};
+
 function normalizeLocationValue(value: string) {
   return value.trim();
+}
+
+function normalizePromoterCsvString(value?: string) {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed : null;
+}
+
+function parsePromoterDateInput(value: string | null) {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return null;
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function parsePromoterOptionalInteger(value: string | null) {
+  if (!value) return { value: null as string | null, error: null as string | null };
+  if (!/^\d+$/.test(value)) {
+    return { value: null, error: "must be a whole number" };
+  }
+
+  return { value, error: null };
+}
+
+function parsePromoterCategories(value: string | null) {
+  if (!value) return { value: [] as string[], invalid: [] as string[] };
+
+  const normalized = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => promoterCategoryAliases[item.toLowerCase()] ?? item);
+
+  const valid = normalized.filter((item) =>
+    SHOW_CATEGORIES.includes(item as (typeof SHOW_CATEGORIES)[number])
+  );
+  const invalid = normalized.filter((item) => !valid.includes(item));
+
+  return { value: valid, invalid };
+}
+
+function buildPromoterDuplicateKey(input: {
+  title: string;
+  startDate: string;
+  city: string;
+  state: string;
+}) {
+  return [
+    input.title.trim().toLowerCase().replace(/[^a-z0-9]+/g, ""),
+    input.startDate,
+    input.city.trim().toLowerCase().replace(/[^a-z0-9]+/g, ""),
+    input.state.trim().toUpperCase(),
+  ].join("|");
 }
 
 export async function registerPromoterAccount(input: RegisterPromoterInput) {
@@ -316,6 +413,278 @@ export async function createPromoterShow(userId: string, input: PromoterShowInpu
     status: "PENDING" as const,
     submission,
     territoryStatus: approval?.autoApprove ? "spot-check" : "review",
+  };
+}
+
+export async function bulkCreatePromoterShows(
+  userId: string,
+  rows: PromoterBulkCsvRow[],
+): Promise<PromoterBulkUploadResult> {
+  if (isFixtureMode()) {
+    return {
+      approved: 0,
+      pending: 0,
+      skipped: rows.length,
+      errors: rows.map((row) => ({
+        row: row.rowNumber,
+        message: "Bulk upload is unavailable in fixture mode.",
+      })),
+    };
+  }
+
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    include: { organizer: true },
+  });
+
+  if (!user?.organizer) {
+    throw new Error("Organizer account not found.");
+  }
+
+  const errors: PromoterBulkUploadResult["errors"] = [];
+  const validRows: Array<{
+    rowNumber: number;
+    showName: string;
+    startDate: string;
+    endDate: string;
+    startTimeLabel: string | null;
+    endTimeLabel: string | null;
+    city: string;
+    state: string;
+    venueName: string;
+    venueAddress: string | null;
+    categories: string[];
+    description: string | null;
+    tableCount: string | null;
+    vendorDetails: string | null;
+    websiteUrl: string | null;
+    facebookUrl: string | null;
+    isFree: boolean;
+    admissionPrice: string | null;
+    admissionNotes: string | null;
+    parkingInfo: string | null;
+  }> = [];
+
+  for (const row of rows) {
+    const showName = normalizePromoterCsvString(row.title);
+    const startDateValue = normalizePromoterCsvString(row.startDate);
+    const endDateValue = normalizePromoterCsvString(row.endDate) ?? startDateValue;
+    const city = normalizePromoterCsvString(row.city);
+    const state = normalizePromoterCsvString(row.state)?.toUpperCase() ?? null;
+    const venueName = normalizePromoterCsvString(row.venueName);
+    const startDate = parsePromoterDateInput(startDateValue);
+    const endDate = parsePromoterDateInput(endDateValue);
+    const categories = parsePromoterCategories(normalizePromoterCsvString(row.categories));
+    const tableCount = parsePromoterOptionalInteger(normalizePromoterCsvString(row.tableCount));
+    const websiteUrlInput = normalizePromoterCsvString(row.websiteUrl);
+    const facebookUrlInput = normalizePromoterCsvString(row.facebookUrl);
+    const websiteUrl = normalizeExternalUrl(websiteUrlInput);
+    const facebookUrl = normalizeExternalUrl(facebookUrlInput);
+
+    if (!showName || !startDateValue || !endDateValue || !city || !state || !venueName) {
+      errors.push({
+        row: row.rowNumber,
+        message: "Missing required fields. Required: title, startDate, endDate, city, state, venueName.",
+      });
+      continue;
+    }
+
+    if (!startDate || !endDate || endDate < startDate) {
+      errors.push({
+        row: row.rowNumber,
+        message: "Dates must use YYYY-MM-DD format and endDate cannot be before startDate.",
+      });
+      continue;
+    }
+
+    if (!/^[A-Z]{2}$/.test(state)) {
+      errors.push({
+        row: row.rowNumber,
+        message: "State must be a 2-letter code.",
+      });
+      continue;
+    }
+
+    if (categories.invalid.length > 0) {
+      errors.push({
+        row: row.rowNumber,
+        message: `Invalid categories: ${categories.invalid.join(", ")}.`,
+      });
+      continue;
+    }
+
+    if (tableCount.error) {
+      errors.push({
+        row: row.rowNumber,
+        message: `tableCount ${tableCount.error}.`,
+      });
+      continue;
+    }
+
+    if (websiteUrlInput && !websiteUrl) {
+      errors.push({
+        row: row.rowNumber,
+        message: "websiteUrl must be a valid http or https URL.",
+      });
+      continue;
+    }
+
+    if (facebookUrlInput && !facebookUrl) {
+      errors.push({
+        row: row.rowNumber,
+        message: "facebookUrl must be a valid http or https URL.",
+      });
+      continue;
+    }
+
+    validRows.push({
+      rowNumber: row.rowNumber,
+      showName,
+      startDate: startDateValue,
+      endDate: endDateValue,
+      startTimeLabel: normalizePromoterCsvString(row.startTimeLabel),
+      endTimeLabel: normalizePromoterCsvString(row.endTimeLabel),
+      city,
+      state,
+      venueName,
+      venueAddress: normalizePromoterCsvString(row.venueAddress),
+      categories: categories.value,
+      description: normalizePromoterCsvString(row.description),
+      tableCount: tableCount.value,
+      vendorDetails: normalizePromoterCsvString(row.vendorDetails),
+      websiteUrl,
+      facebookUrl,
+      isFree: normalizePromoterCsvString(row.isFree)?.toLowerCase() === "yes",
+      admissionPrice: normalizePromoterCsvString(row.admissionPrice),
+      admissionNotes: normalizePromoterCsvString(row.admissionNotes),
+      parkingInfo: normalizePromoterCsvString(row.parkingInfo),
+    });
+  }
+
+  const duplicateKeys = new Set<string>();
+  const dedupedRows: typeof validRows = [];
+
+  for (const row of validRows) {
+    const key = buildPromoterDuplicateKey({
+      title: row.showName,
+      startDate: row.startDate,
+      city: row.city,
+      state: row.state,
+    });
+
+    if (duplicateKeys.has(key)) {
+      errors.push({
+        row: row.rowNumber,
+        message: "Duplicate row in upload (same title, start date, city, and state).",
+      });
+      continue;
+    }
+
+    duplicateKeys.add(key);
+    dedupedRows.push(row);
+  }
+
+  const existingShows = await db.show.findMany({
+    where: {
+      organizerId: user.organizer.id,
+    },
+    select: {
+      title: true,
+      city: true,
+      state: true,
+      startDate: true,
+    },
+  });
+
+  const existingSubmissions = await db.showSubmission.findMany({
+    where: {
+      submitterEmail: user.email,
+      status: "PENDING",
+    },
+    select: {
+      payloadJson: true,
+    },
+  });
+
+  const existingKeys = new Set<string>();
+  for (const show of existingShows) {
+    existingKeys.add(
+      buildPromoterDuplicateKey({
+        title: show.title,
+        startDate: show.startDate.toISOString().slice(0, 10),
+        city: show.city,
+        state: show.state,
+      }),
+    );
+  }
+
+  for (const submission of existingSubmissions) {
+    const payload = submission.payloadJson as Record<string, unknown>;
+    const title = typeof payload.showName === "string" ? payload.showName : null;
+    const startDate = typeof payload.startDate === "string" ? payload.startDate : null;
+    const city = typeof payload.city === "string" ? payload.city : null;
+    const state = typeof payload.state === "string" ? payload.state : null;
+    if (!title || !startDate || !city || !state) continue;
+
+    existingKeys.add(buildPromoterDuplicateKey({ title, startDate, city, state }));
+  }
+
+  let approved = 0;
+  let pending = 0;
+
+  for (const row of dedupedRows) {
+    const key = buildPromoterDuplicateKey({
+      title: row.showName,
+      startDate: row.startDate,
+      city: row.city,
+      state: row.state,
+    });
+
+    if (existingKeys.has(key)) {
+      errors.push({
+        row: row.rowNumber,
+        message: "A matching show or pending submission already exists for this account.",
+      });
+      continue;
+    }
+
+    const result = await createPromoterShow(userId, {
+      showName: row.showName,
+      startDate: row.startDate,
+      endDate: row.endDate,
+      startTimeLabel: row.startTimeLabel,
+      endTimeLabel: row.endTimeLabel,
+      city: row.city,
+      state: row.state,
+      venueName: row.venueName,
+      venueAddress: row.venueAddress,
+      categories: row.categories,
+      description: row.description,
+      tableCount: row.tableCount,
+      vendorDetails: row.vendorDetails,
+      websiteUrl: row.websiteUrl,
+      facebookUrl: row.facebookUrl,
+      isFree: row.isFree,
+      admissionPrice: row.admissionPrice,
+      admissionNotes: row.admissionNotes,
+      parkingInfo: row.parkingInfo,
+      flyerFile: null,
+    });
+
+    if (result.status === "APPROVED") {
+      approved += 1;
+    } else {
+      pending += 1;
+    }
+
+    existingKeys.add(key);
+  }
+
+  return {
+    approved,
+    pending,
+    skipped: errors.length,
+    errors,
   };
 }
 
