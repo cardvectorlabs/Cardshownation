@@ -1,7 +1,8 @@
 'use client'
 
 import { useState, useCallback, useEffect, useRef } from 'react'
-import { useEditorStore, selectCanUndo, selectCanRedo } from '@floorplanner/store/index'
+import { useEditorStore, selectCanUndo, selectCanRedo, selectSelectedIds, selectTables } from '@floorplanner/store/index'
+import type { TableId } from '@floorplanner/domain/types'
 import { getPendingChangesMessage, hasPendingEditorChanges } from '@floorplanner/lib/editor-save-state'
 import ImportModal from './ImportModal'
 import ExportModal from './ExportModal'
@@ -126,6 +127,8 @@ export default function Toolbar() {
   const currentDocumentHash = useEditorStore(s => s.currentDocumentHash)
   const lastCloudSyncHash = useEditorStore(s => s.lastCloudSyncHash)
   const lastFileSyncHash = useEditorStore(s => s.lastFileSyncHash)
+  const selectedIds = useEditorStore(selectSelectedIds)
+  const tables = useEditorStore(selectTables)
 
   const [showImport, setShowImport] = useState(false)
   const [showExport, setShowExport] = useState(false)
@@ -267,6 +270,27 @@ export default function Toolbar() {
     lastCloudSyncHash,
     lastFileSyncHash,
   })
+  const selectedTableIds = [...selectedIds].filter(id => tables[id]) as TableId[]
+  const selectedPremiumCount = selectedTableIds.filter(id => tables[id]?.premium).length
+  const hasSelection = selectedTableIds.length > 0
+  const allSelectedPremium = hasSelection && selectedPremiumCount === selectedTableIds.length
+
+  const toggleSelectedPremium = useCallback(() => {
+    if (selectedTableIds.length === 0) return
+
+    const nextPremium = !allSelectedPremium
+    const prev = Object.fromEntries(
+      selectedTableIds.map(id => [id, tables[id]?.premium ?? false]),
+    )
+
+    dispatch({
+      type: 'SET_TABLE_PREMIUM',
+      tableIds: selectedTableIds,
+      premium: nextPremium,
+      prev,
+      timestamp: Date.now(),
+    })
+  }, [allSelectedPremium, dispatch, selectedTableIds, tables])
 
   return (
     <div ref={toolbarRef} className="shrink-0">
@@ -311,6 +335,20 @@ export default function Toolbar() {
               <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-700">
                 Unsynced changes
               </span>
+            )}
+
+            {hasSelection && (
+              <button
+                onClick={toggleSelectedPremium}
+                title={`Toggle premium for selected tables (P)`}
+                className={`rounded-full px-3 py-2 text-sm font-medium sm:px-4 ${
+                  allSelectedPremium
+                    ? 'border border-amber-300 bg-amber-100 text-amber-900 hover:bg-amber-200'
+                    : 'border border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100'
+                }`}
+              >
+                {allSelectedPremium ? 'Premium On' : 'Mark Premium'}
+              </button>
             )}
 
             <button

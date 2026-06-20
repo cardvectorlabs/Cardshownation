@@ -13,7 +13,7 @@ import {
 import { createTableId } from '@floorplanner/lib/id'
 import { getNextLabelNumberForRoom } from '@floorplanner/lib/labels'
 import { buildAllSectionRenumberChanges, formatDisplayId } from '@floorplanner/domain/room-numbering'
-import type { TableObject } from '@floorplanner/domain/types'
+import type { TableId, TableObject } from '@floorplanner/domain/types'
 
 /** Clipboard entry — stores the table template for pasting. */
 interface ClipboardEntry {
@@ -256,6 +256,28 @@ export function useKeyboardShortcuts() {
         e.preventDefault()
         const allIds = Object.keys(tables)
         useEditorStore.getState().setSelected(allIds)
+        return
+      }
+
+      if (e.key === 'p' && !ctrl) {
+        if (selectedIds.size === 0) return
+        e.preventDefault()
+
+        const selectedTableIds = [...selectedIds].filter((id): id is TableId => Boolean(tables[id]))
+        if (selectedTableIds.length === 0) return
+
+        const allPremium = selectedTableIds.every(id => tables[id]?.premium)
+        const prev = Object.fromEntries(
+          selectedTableIds.map(id => [id, tables[id]?.premium ?? false]),
+        )
+
+        dispatch({
+          type: 'SET_TABLE_PREMIUM',
+          tableIds: selectedTableIds,
+          premium: !allPremium,
+          prev,
+          timestamp: Date.now(),
+        })
         return
       }
 
