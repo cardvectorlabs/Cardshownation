@@ -160,7 +160,7 @@ export default async function UnifiedLoginPage({
     sp.error === "rate"
       ? "Too many attempts. Wait 30 minutes and try again."
       : sp.error === "invalid"
-        ? "Email or password did not match a member, promoter, or moderator account."
+        ? "Email or password did not match a member or promoter account."
         : sp.error === "unverified"
           ? "Please verify your email before logging in."
           : sp.error === "disabled"
@@ -181,8 +181,8 @@ export default async function UnifiedLoginPage({
           Login once. We&apos;ll send you to the right place.
         </h1>
         <p className="mt-4 text-base leading-7 text-slate-600">
-          Use one login form for members, promoters, and moderators. After sign-in, Card Show Nation
-          routes you to the correct dashboard automatically.
+          Use one login form for members and promoters. After sign-in, Card Show Nation routes you
+          to the correct dashboard automatically.
         </p>
 
         {errorMessage && (
@@ -231,7 +231,7 @@ export default async function UnifiedLoginPage({
           </button>
         </form>
 
-        <div className="mt-8 grid gap-4 lg:grid-cols-3">
+        <div className="mt-8 grid gap-4 lg:grid-cols-2">
           <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
               Member
@@ -268,23 +268,6 @@ export default async function UnifiedLoginPage({
             </div>
           </section>
 
-          <section className="rounded-[1.5rem] border border-slate-200 bg-slate-50 p-5">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-              Staff
-            </p>
-            <h2 className="mt-2 text-lg font-semibold text-slate-950">Moderator or admin</h2>
-            <p className="mt-2 text-sm leading-6 text-slate-600">
-              Moderator accounts are admin-managed. Admin access stays on a separate login page.
-            </p>
-            <div className="mt-4 flex flex-col gap-2 text-sm">
-              <Link href="/moderator/forgot-password" className="font-semibold text-brand-700 hover:text-brand-800">
-                Reset moderator password
-              </Link>
-              <Link href="/admin/login" className="font-semibold text-brand-700 hover:text-brand-800">
-                Go to admin login
-              </Link>
-            </div>
-          </section>
         </div>
       </div>
     </div>
