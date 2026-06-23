@@ -6,7 +6,7 @@ import VendorRosterPanel, { useVendorGridData } from './VendorRosterPanel'
 type VendorFilter = 'all' | 'open' | 'complete' | 'premium'
 type DrawerState = 'collapsed' | 'medium' | 'expanded'
 
-const COLLAPSED_HEIGHT = 56
+const COLLAPSED_HEIGHT = 44
 const MEDIUM_RATIO = 0.36
 const EXPANDED_RATIO = 0.64
 const MAX_RATIO = 0.7
@@ -136,36 +136,36 @@ export default function VendorDrawer({ active }: VendorDrawerProps) {
       style={{ height: drawerHeight }}
     >
       <div
-        className="flex cursor-row-resize items-center gap-3 border-b border-slate-300 bg-slate-50 px-4 py-2"
+        className="flex cursor-row-resize items-center gap-3 border-b border-slate-300 bg-slate-50 px-4 py-1.5"
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerEnd}
         onPointerCancel={handlePointerEnd}
       >
-        <div className="mx-auto h-1.5 w-12 rounded-full bg-slate-300" />
+        <div className="mx-auto h-1.5 w-10 rounded-full bg-slate-300" />
       </div>
 
-      <div className="flex items-center justify-between gap-3 border-b border-slate-300 px-4 py-2">
-        <div className="min-w-0 text-xs font-medium text-slate-600">
+      <div className="flex items-center justify-between gap-3 border-b border-slate-300 px-3 py-1.5">
+        <div className="min-w-0 truncate text-[11px] font-medium text-slate-600">
           {totals.vendorsCount} Vendors • {totals.assignedCount} Assigned • {totals.openCount} Open • {totals.completion}% Complete
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-1.5">
           <button
             onClick={setMedium}
-            className="border border-slate-300 bg-white px-2 py-1 text-xs text-slate-700 hover:bg-slate-100"
+            className="border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-700 hover:bg-slate-100"
             title="Search and work in medium view"
           >
             {magnifierIcon()}
           </button>
           <button
             onClick={drawerState === 'expanded' ? setMedium : setExpanded}
-            className="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+            className="border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
           >
             {drawerState === 'expanded' ? 'Medium' : 'Expand'}
           </button>
           <button
             onClick={setCollapsed}
-            className="border border-slate-300 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+            className="border border-slate-300 bg-white px-2 py-1 text-[11px] font-semibold text-slate-700 hover:bg-slate-100"
           >
             Collapse
           </button>
@@ -173,7 +173,7 @@ export default function VendorDrawer({ active }: VendorDrawerProps) {
       </div>
 
       {drawerState !== 'collapsed' && (
-        <div className="min-h-0 h-[calc(100%-81px)]">
+        <div className="min-h-0 h-[calc(100%-69px)]">
           <VendorRosterPanel
             search={search}
             onSearchChange={setSearch}

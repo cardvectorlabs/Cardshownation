@@ -565,20 +565,20 @@ export default function VendorRosterPanel({ search, onSearchChange, filter, onFi
       onKeyDown={handleKeyboard}
       className="flex h-full min-h-0 flex-col bg-white outline-none"
     >
-      <div className="border-b border-slate-300 px-3 py-2">
-        <div className="flex items-center gap-2">
+      <div className="border-b border-slate-300 px-3 py-1.5">
+        <div className="flex items-center gap-1.5">
           <input
             value={search}
             onChange={e => onSearchChange(e.target.value)}
             placeholder="Search company, email, category, notes, or tables"
-            className={`min-w-0 flex-1 px-2 py-1 text-sm ${fieldClassName}`}
+            className={`min-w-0 flex-1 px-2 py-1 text-xs ${fieldClassName}`}
           />
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1">
             {VENDOR_FILTERS.map(item => (
               <button
                 key={item.id}
                 onClick={() => onFilterChange(item.id)}
-                className={`border px-2 py-1 text-xs font-medium ${
+                className={`border px-2 py-1 text-[11px] font-medium ${
                   filter === item.id ? 'border-slate-900 bg-slate-900 text-white' : 'border-slate-300 bg-white text-slate-700 hover:bg-slate-100'
                 }`}
               >
@@ -586,17 +586,13 @@ export default function VendorRosterPanel({ search, onSearchChange, filter, onFi
               </button>
             ))}
           </div>
-        </div>
-        <div className="mt-2 flex items-center justify-between gap-2">
-          <div className="text-xs text-slate-500">
-            {selectedVendorIds.size > 0
-              ? `${selectedVendorIds.size} vendor${selectedVendorIds.size === 1 ? '' : 's'} selected`
-              : 'Select vendors to delete them in bulk.'}
-          </div>
           <button
             onClick={deleteSelectedVendors}
             disabled={selectedVendorIds.size === 0}
-            className="rounded border border-red-200 bg-red-50 px-2.5 py-1 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+            className="shrink-0 rounded border border-red-200 bg-red-50 px-2 py-1 text-[11px] font-semibold text-red-700 hover:bg-red-100 disabled:cursor-not-allowed disabled:border-slate-200 disabled:bg-slate-100 disabled:text-slate-400"
+            title={selectedVendorIds.size > 0
+              ? `${selectedVendorIds.size} vendor${selectedVendorIds.size === 1 ? '' : 's'} selected`
+              : 'Select vendors to delete them in bulk.'}
           >
             Delete Selected
           </button>
