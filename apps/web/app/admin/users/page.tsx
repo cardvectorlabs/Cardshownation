@@ -122,11 +122,8 @@ async function readAdminUsersFlashCookie() {
   }
 
   try {
-    const parsed = JSON.parse(rawValue) as AdminUserFlash;
-    cookieStore.delete(ADMIN_USERS_FLASH_COOKIE);
-    return parsed;
+    return JSON.parse(rawValue) as AdminUserFlash;
   } catch {
-    cookieStore.delete(ADMIN_USERS_FLASH_COOKIE);
     return null;
   }
 }
