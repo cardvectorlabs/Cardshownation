@@ -200,6 +200,7 @@ async function createManagedAccount(formData: FormData) {
       });
       redirect("/admin/users?accountCreated=1");
     } catch (emailError) {
+      rethrowIfRedirectError(emailError);
       await setAdminUsersFlashCookie({
         kind: "account-created",
         role: user.role,
