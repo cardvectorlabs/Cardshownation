@@ -39,7 +39,7 @@
     "react-dom": "19.2.0",
     "@types/react": "19.2.2",
     "@types/react-dom": "19.2.2",
-    "next@15.5.19": {
+    "next": {
       "postcss": "8.5.10"
     },
     "konva": "8.4.3",
