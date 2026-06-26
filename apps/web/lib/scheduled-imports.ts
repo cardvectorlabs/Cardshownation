@@ -1,6 +1,6 @@
 import { runEventbriteImport } from "@/lib/eventbrite-import";
 import { runTcdbImport } from "@/lib/tcdb-import";
-import { getTcdbImportStateLabels } from "@/lib/tcdb";
+import { getAllTcdbImportStateCodes, getTcdbImportStateLabels } from "@/lib/tcdb";
 import { getAllPublicImportSources, getBuiltInPublicImportSources, getDatabaseAutoImportSources, parsePublicImportSources } from "@/lib/auto-import-sources";
 import { getPublicImportSourceKey } from "@/lib/import-source-keys";
 import { runPublicSourceImports } from "@/lib/public-show-import";
@@ -14,6 +14,16 @@ export type ScheduledImportRunResult = {
 };
 
 export async function getAutoImportSourceSummaries() {
+  const tcdbStateCodes = getAllTcdbImportStateCodes();
+  const tcdbStateSources = tcdbStateCodes.map((code) => ({
+    key: `tcdb:${code}`,
+    label: `TCDB: ${code}`,
+    type: `Single-state calendar scrape (${code})`,
+    scheduleLabel: "Manual only",
+    url: "https://www.tcdb.com/CardShowCalendar.cfm",
+    origin: "environment" as const,
+    active: true,
+  }));
   const databaseSources = await getDatabaseAutoImportSources();
   const builtInSources = getBuiltInPublicImportSources();
   const environmentSources = parsePublicImportSources().filter(
@@ -43,6 +53,7 @@ export async function getAutoImportSourceSummaries() {
         origin: "environment" as const,
         active: true,
       },
+      ...tcdbStateSources,
       {
         key: "eventbrite",
         label: "Eventbrite",
@@ -74,15 +85,16 @@ export async function runScheduledImports() {
 
 export async function runScheduledImportsForSource(selectedSource: string) {
   const results: ImportSourceSummary[] = [];
+  const requestedState = selectedSource.startsWith("tcdb:") ? selectedSource.slice("tcdb:".length).toUpperCase() : null;
 
-  if (selectedSource === "all" || selectedSource === "tcdb") {
+  if (selectedSource === "all" || selectedSource === "tcdb" || selectedSource.startsWith("tcdb:")) {
     try {
-      const tcdbResult = await runTcdbImport();
+      const tcdbResult = await runTcdbImport(requestedState ? [requestedState] : undefined);
       results.push(tcdbResult);
     } catch (error) {
       results.push({
-        source: "tcdb",
-        label: "Trading Card Database",
+        source: selectedSource.startsWith("tcdb:") ? selectedSource : "tcdb",
+        label: requestedState ? `Trading Card Database (${requestedState})` : "Trading Card Database",
         imported: 0,
         skipped: 0,
         errors: [error instanceof Error ? error.message : String(error)],

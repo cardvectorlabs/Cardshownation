@@ -51,6 +51,44 @@ test("parseTcdbCalendarHtml deduplicates duplicate links", () => {
   assert.equal(shows.length, 1);
 });
 
+test("parseTcdbCalendarHtml supports same-month date ranges", () => {
+  const html = `
+    <html>
+      <body>
+        <strong>June 20-22, 2026</strong>
+        <ul>
+          <li>9:00 AM - 4:00 PM - <a href="CardShows.cfm?MODE=VIEW&ID=30001">Three Day Card Show</a> (Dallas, TX)</li>
+        </ul>
+      </body>
+    </html>
+  `;
+
+  const shows = parseTcdbCalendarHtml(html, "TX");
+
+  assert.equal(shows.length, 1);
+  assert.equal(shows[0]?.startDate.toISOString().slice(0, 10), "2026-06-20");
+  assert.equal(shows[0]?.endDate.toISOString().slice(0, 10), "2026-06-22");
+});
+
+test("parseTcdbCalendarHtml supports cross-month date ranges", () => {
+  const html = `
+    <html>
+      <body>
+        <strong>June 30, July 1, 2026</strong>
+        <ul>
+          <li>10:00 AM - 3:00 PM - <a href="CardShows.cfm?MODE=VIEW&ID=30002">Month Split Expo</a> (Phoenix, AZ)</li>
+        </ul>
+      </body>
+    </html>
+  `;
+
+  const shows = parseTcdbCalendarHtml(html, "AZ");
+
+  assert.equal(shows.length, 1);
+  assert.equal(shows[0]?.startDate.toISOString().slice(0, 10), "2026-06-30");
+  assert.equal(shows[0]?.endDate.toISOString().slice(0, 10), "2026-07-01");
+});
+
 test("getTcdbImportStateCodes falls back to all U.S. states", () => {
   assert.equal(getTcdbImportStateCodes().length, 50);
   assert.equal(getTcdbImportStateCodes()[0], "AL");

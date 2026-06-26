@@ -56,6 +56,10 @@ function parseStateCodes(raw = process.env.TCDB_STATE_CODES) {
   return unique.size > 0 ? [...unique] : US_STATES.map((state) => state.code);
 }
 
+function getAllStateCodes() {
+  return US_STATES.map((state) => state.code);
+}
+
 function buildTcdbListUrl(stateCode: string) {
   const state = getStateByCode(stateCode);
   const displayName = state?.name ?? stateCode;
@@ -69,14 +73,43 @@ function buildTcdbListUrl(stateCode: string) {
   return `${TCDB_BASE_URL}/CardShowCalendar.cfm?${params.toString()}`;
 }
 
-function parseDateLabel(value: string) {
-  const match = value.match(/(?:^|\b)([A-Za-z]+,\s+[A-Za-z]+\s+\d{1,2},\s+\d{4}|[A-Za-z]+\s+\d{1,2},\s+\d{4})(?:\b|$)/);
-  if (!match) {
-    return null;
+function parseDateRangeLabel(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  const patterns = [
+    /(?:^|\b)(?:[A-Za-z]+,\s+)?([A-Za-z]+ \d{1,2}),\s*([A-Za-z]+ \d{1,2}),\s*(\d{4})(?:\b|$)/,
+    /(?:^|\b)(?:[A-Za-z]+,\s+)?([A-Za-z]+)\s+(\d{1,2})\s*[-–]\s*(\d{1,2}),\s*(\d{4})(?:\b|$)/,
+    /(?:^|\b)([A-Za-z]+,\s+[A-Za-z]+\s+\d{1,2},\s+\d{4}|[A-Za-z]+\s+\d{1,2},\s+\d{4})(?:\b|$)/,
+  ] as const;
+
+  const crossMonthMatch = normalized.match(patterns[0]);
+  if (crossMonthMatch) {
+    const start = new Date(`${crossMonthMatch[1]}, ${crossMonthMatch[3]}`);
+    const end = new Date(`${crossMonthMatch[2]}, ${crossMonthMatch[3]}`);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      return { startDate: start, endDate: end < start ? new Date(`${crossMonthMatch[2]}, ${Number(crossMonthMatch[3]) + 1}`) : end };
+    }
   }
 
-  const parsed = new Date(match[1]);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
+  const sameMonthMatch = normalized.match(patterns[1]);
+  if (sameMonthMatch) {
+    const month = sameMonthMatch[1];
+    const year = sameMonthMatch[4];
+    const start = new Date(`${month} ${sameMonthMatch[2]}, ${year}`);
+    const end = new Date(`${month} ${sameMonthMatch[3]}, ${year}`);
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      return { startDate: start, endDate: end };
+    }
+  }
+
+  const singleMatch = normalized.match(patterns[2]);
+  if (singleMatch) {
+    const parsed = new Date(singleMatch[1]);
+    if (!Number.isNaN(parsed.getTime())) {
+      return { startDate: parsed, endDate: parsed };
+    }
+  }
+
+  return null;
 }
 
 function extractTimeLabels(value: string) {
@@ -142,13 +175,15 @@ export function parseTcdbCalendarHtml(html: string, fallbackState: string): Pars
     .filter(Boolean);
 
   const shows: ParsedTcdbShow[] = [];
-  let currentDate: Date | null = null;
+  let currentStartDate: Date | null = null;
+  let currentEndDate: Date | null = null;
 
   for (let index = 0; index < lines.length; index++) {
     const line = lines[index]!;
-    const parsedDate = parseDateLabel(line);
+    const parsedDate = parseDateRangeLabel(line);
     if (parsedDate) {
-      currentDate = parsedDate;
+      currentStartDate = parsedDate.startDate;
+      currentEndDate = parsedDate.endDate;
     }
 
     if (!line.includes(SHOW_MARKER_PREFIX)) {
@@ -169,7 +204,7 @@ export function parseTcdbCalendarHtml(html: string, fallbackState: string): Pars
 
     const contextText = contextLines.join(" ");
     const { city, state } = extractCityState(contextText, fallbackState);
-    if (!currentDate || !city || !state) {
+    if (!currentStartDate || !currentEndDate || !city || !state) {
       continue;
     }
 
@@ -184,8 +219,8 @@ export function parseTcdbCalendarHtml(html: string, fallbackState: string): Pars
       externalId: `tcdb:${externalId}`,
       title,
       description: normalizeDescription(descriptionParts),
-      startDate: currentDate,
-      endDate: currentDate,
+      startDate: currentStartDate,
+      endDate: currentEndDate,
       city,
       state,
       venueName: null,
@@ -232,7 +267,7 @@ export async function fetchTcdbShowsByState(stateCode: string) {
 }
 
 export async function fetchCardShowsFromTcdb() {
-  const supportedStateCodes = parseStateCodes();
+  const supportedStateCodes = getAllStateCodes();
   const results: ParsedTcdbShow[] = [];
 
   for (const stateCode of supportedStateCodes) {
@@ -247,6 +282,10 @@ export function getTcdbImportStateCodes() {
   return parseStateCodes();
 }
 
+export function getAllTcdbImportStateCodes() {
+  return getAllStateCodes();
+}
+
 export function getTcdbImportStateLabels() {
-  return parseStateCodes().map((code) => US_STATES.find((state) => state.code === code)?.name ?? code);
+  return getAllStateCodes().map((code) => US_STATES.find((state) => state.code === code)?.name ?? code);
 }

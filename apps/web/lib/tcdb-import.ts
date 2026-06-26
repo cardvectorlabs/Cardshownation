@@ -1,9 +1,8 @@
 import { getSeenTcdbExternalIdsByState, updateSeenTcdbExternalIdsForState } from "@/lib/import-cursors";
-import { fetchTcdbShowsByState, getTcdbImportStateCodes } from "@/lib/tcdb";
+import { fetchTcdbShowsByState, getAllTcdbImportStateCodes } from "@/lib/tcdb";
 import { ingestImportedShows, type ImportedShow } from "@/lib/show-import-ingest";
 
-export async function runTcdbImport() {
-  const stateCodes = getTcdbImportStateCodes();
+export async function runTcdbImport(stateCodes = getAllTcdbImportStateCodes()) {
   const seenByState = await getSeenTcdbExternalIdsByState(stateCodes);
   const shows: ImportedShow[] = [];
 
