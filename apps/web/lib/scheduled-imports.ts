@@ -2,6 +2,7 @@ import { runEventbriteImport } from "@/lib/eventbrite-import";
 import { runTcdbImport } from "@/lib/tcdb-import";
 import { getTcdbImportStateLabels } from "@/lib/tcdb";
 import { getAllPublicImportSources, getBuiltInPublicImportSources, getDatabaseAutoImportSources, parsePublicImportSources } from "@/lib/auto-import-sources";
+import { getPublicImportSourceKey } from "@/lib/import-source-keys";
 import { runPublicSourceImports } from "@/lib/public-show-import";
 import type { ImportSourceSummary } from "@/lib/show-import-ingest";
 
@@ -22,7 +23,7 @@ export async function getAutoImportSourceSummaries() {
   );
   const activeSources = await getAllPublicImportSources();
   const publicSources = activeSources.map((source) => ({
-    key: `public:${source.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+    key: getPublicImportSourceKey(source.name),
     label: source.name,
     type: /facebook\.com/i.test(source.url) ? "Facebook/Public Page" : "Website",
     scheduleLabel: "Mondays 6 AM",
@@ -68,25 +69,33 @@ function combineResults(results: ImportSourceSummary[]): ScheduledImportRunResul
 }
 
 export async function runScheduledImports() {
+  return runScheduledImportsForSource("all");
+}
+
+export async function runScheduledImportsForSource(selectedSource: string) {
   const results: ImportSourceSummary[] = [];
 
-  const tcdbResult = await runTcdbImport();
-  results.push(tcdbResult);
-
-  const eventbriteResult = await runEventbriteImport();
-  if (!("error" in eventbriteResult)) {
-    results.push(eventbriteResult);
-  } else {
-    results.push({
-      source: "eventbrite",
-      label: "Eventbrite",
-      imported: 0,
-      skipped: 0,
-      errors: [eventbriteResult.error],
-    });
+  if (selectedSource === "all" || selectedSource === "tcdb") {
+    const tcdbResult = await runTcdbImport();
+    results.push(tcdbResult);
   }
 
-  results.push(...(await runPublicSourceImports()));
+  if (selectedSource === "all" || selectedSource === "eventbrite") {
+    const eventbriteResult = await runEventbriteImport();
+    if (!("error" in eventbriteResult)) {
+      results.push(eventbriteResult);
+    } else {
+      results.push({
+        source: "eventbrite",
+        label: "Eventbrite",
+        imported: 0,
+        skipped: 0,
+        errors: [eventbriteResult.error],
+      });
+    }
+  }
+
+  results.push(...(await runPublicSourceImports(selectedSource)));
 
   return combineResults(results);
 }

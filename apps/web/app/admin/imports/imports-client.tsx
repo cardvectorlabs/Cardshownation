@@ -176,6 +176,7 @@ export function ImportsClient({ sources }: { sources: SourceData }) {
         <div className="flex w-full justify-start sm:w-auto sm:justify-end">
           <RunDatabasePullsButton
             label="Run database pulls"
+            sources={sources.activeSources.map((source) => ({ key: source.key, label: source.label }))}
             onComplete={(data) => {
               setResult(data);
               setError(null);

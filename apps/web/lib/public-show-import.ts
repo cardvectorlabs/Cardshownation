@@ -3,6 +3,7 @@ import {
   parsePublicImportSources,
   type PublicImportSource,
 } from "@/lib/auto-import-sources";
+import { getPublicImportSourceKey } from "@/lib/import-source-keys";
 import { ingestImportedShows, type ImportSourceSummary, type ImportedShow } from "@/lib/show-import-ingest";
 import { getStateByCode, US_STATES } from "@/lib/states";
 import { normalizeExternalUrl } from "@/lib/url";
@@ -578,8 +579,11 @@ async function crawlLinkedEventPages(source: PublicImportSource, sourceHtml: str
   return [...collected.values()];
 }
 
-export async function runPublicSourceImports() {
-  const sources = await getAllPublicImportSources();
+export async function runPublicSourceImports(selectedSource: string = "all") {
+  const allSources = await getAllPublicImportSources();
+  const sources = selectedSource === "all"
+    ? allSources
+    : allSources.filter((source) => getPublicImportSourceKey(source.name) === selectedSource);
   const results: ImportSourceSummary[] = [];
 
   for (const source of sources) {
@@ -593,7 +597,7 @@ export async function runPublicSourceImports() {
       }
       const shows = [...showMap.values()];
       const result = await ingestImportedShows({
-        source: `public:${source.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        source: getPublicImportSourceKey(source.name),
         label: source.name,
         submitterName: `${source.name} Import`,
         submitterEmail: "import@cardshownation.com",
@@ -602,7 +606,7 @@ export async function runPublicSourceImports() {
       results.push(result);
     } catch (err) {
       results.push({
-        source: `public:${source.name.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`,
+        source: getPublicImportSourceKey(source.name),
         label: source.name,
         imported: 0,
         skipped: 0,

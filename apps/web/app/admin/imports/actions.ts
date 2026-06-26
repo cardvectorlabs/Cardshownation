@@ -8,11 +8,11 @@ import {
   validateAutoImportSourceInput,
   type AutoImportSourceInput,
 } from "@/lib/auto-import-sources";
-import { runScheduledImports } from "@/lib/scheduled-imports";
+import { runScheduledImportsForSource } from "@/lib/scheduled-imports";
 
-export async function triggerAutoImports() {
+export async function triggerAutoImports(selectedSource: string = "all") {
   await requireAdminSession("/admin/imports");
-  return runScheduledImports();
+  return runScheduledImportsForSource(selectedSource);
 }
 
 export async function createAutoImportSource(input: AutoImportSourceInput) {

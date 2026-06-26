@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireAdminSession } from "@/lib/admin-auth";
 import { RunDatabasePullsButton } from "@/components/admin/run-database-pulls-button";
 import { getDataModeLabel, isFixtureMode } from "@/lib/data-mode";
+import { getAutoImportSourceSummaries } from "@/lib/scheduled-imports";
 import { getPendingSubmissions } from "@/lib/submissions";
 import {
   getAdminShowStats,
@@ -14,10 +15,11 @@ export const dynamic = "force-dynamic";
 export default async function AdminDashboardPage() {
   await requireAdminSession("/admin");
 
-  const [stats, pendingSubmissions, recentShows] = await Promise.all([
+  const [stats, pendingSubmissions, recentShows, importSources] = await Promise.all([
     getAdminShowStats(),
     getPendingSubmissions(),
     getRecentAdminShows(10),
+    getAutoImportSourceSummaries(),
   ]);
 
   return (
@@ -51,6 +53,7 @@ export default async function AdminDashboardPage() {
             <RunDatabasePullsButton
               label="Run database pulls"
               showSummary
+              sources={importSources.activeSources.map((source) => ({ key: source.key, label: source.label }))}
               className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-700 disabled:opacity-60"
             />
             <Link
