@@ -203,8 +203,18 @@ function getEffectiveMetadata(options: PrintOptions): Required<ExportMetadata> {
   return {
     eventName: options.metadata?.eventName?.trim() || options.title || 'Floor Plan',
     venue: options.metadata?.venue?.trim() || 'Venue TBD',
-    date: options.metadata?.date?.trim() || new Date().toLocaleDateString(),
+    date: options.metadata?.date?.trim() || '',
   }
+}
+
+function slugifyFilename(value: string, fallback: string): string {
+  const slug = value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+
+  return slug || fallback
 }
 
 function computeGlobalSourceBounds(roomSections: RoomSection[], doors: Door[]): Rect {
@@ -751,7 +761,7 @@ export function printShowModeSheet(
   <div class="toolbar no-print">
     <div>
       <div class="title">${esc(title || 'Show Sheet')}</div>
-      <div class="subtitle">${rows.length} vendors${selectedInventoryOption ? ` | View: ${esc(selectedInventoryOption.label)}` : ''} | ${Object.keys(assignments).length} assigned tables | ${new Date().toLocaleDateString()}</div>
+      <div class="subtitle">${rows.length} vendors${selectedInventoryOption ? ` | View: ${esc(selectedInventoryOption.label)}` : ''} | ${Object.keys(assignments).length} assigned tables</div>
     </div>
     <div class="actions">
       <button class="print-btn" onclick="window.print()">Print / Save PDF</button>
@@ -762,7 +772,7 @@ export function printShowModeSheet(
     <div class="header">
       <div>
         <div class="title">${esc(title || 'Show Sheet')}</div>
-        <div class="subtitle">Map | ${Object.keys(assignments).length} assigned tables${selectedInventoryOption ? ` | ${esc(selectedInventoryOption.label)}` : ''} | ${new Date().toLocaleDateString()} | ${document.orientation}</div>
+        <div class="subtitle">Map | ${Object.keys(assignments).length} assigned tables${selectedInventoryOption ? ` | ${esc(selectedInventoryOption.label)}` : ''} | ${document.orientation}</div>
       </div>
     </div>
     <section class="map-panel">
@@ -868,7 +878,6 @@ export function printVendorManifest(
   <div style="display:flex;justify-content:space-between;align-items:center;padding:16px 24px;border-bottom:2px solid #1e293b">
     <div>
       <div style="font-size:20px;font-weight:700;color:#1e293b">${esc(title || 'Floor Plan')} - ${options?.casesOnly ? 'Case Rental Checklist' : 'Vendor Checklist'}</div>
-      <div style="font-size:12px;color:#94a3b8;margin-top:2px">${new Date().toLocaleDateString()}</div>
     </div>
     <button class="no-print" onclick="window.print()" style="padding:8px 16px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">Print / Save PDF</button>
   </div>
@@ -890,16 +899,6 @@ export function printVendorManifest(
 </html>`
 
   openPrintWindow(html, 900, 700, true)
-}
-
-function getUpcomingShows(settings: LayoutSettings): Array<{ date: string; label: string }> {
-  const entries = [
-    { date: settings.upcomingShow1Date.trim(), label: settings.upcomingShow1Location.trim() },
-    { date: settings.upcomingShow2Date.trim(), label: settings.upcomingShow2Location.trim() },
-    { date: settings.upcomingShow3Date.trim(), label: settings.upcomingShow3Location.trim() },
-  ]
-
-  return entries.filter(entry => entry.date || entry.label)
 }
 
 function compareAssignedTablesForPrint(
@@ -954,13 +953,12 @@ export function printVendorTableAssignments(
     return
   }
 
-  const upcomingShows = getUpcomingShows(settings)
+  const filename = `${slugifyFilename(settings.eventName || 'table-assignments', 'table-assignments')}-vendor-table-assignments.html`
   const pages = grouped.map(row => `
     <section class="assignment-page">
       <div class="sheet">
         <div class="sheet-head">
           <div class="event-name">${esc(settings.eventName.trim() || 'Kansas Card Show')}</div>
-          <div class="event-date">${esc(settings.eventDate.trim() || 'Date TBD')}</div>
         </div>
         <div class="vendor-block">
           <div class="label">Vendor</div>
@@ -969,15 +967,6 @@ export function printVendorTableAssignments(
         <div class="assignment-block">
           <div class="label">Table Assignment</div>
           <div class="assignment-value">${esc(compressTableLabels(row.tableLabels))}</div>
-        </div>
-        <div class="footer-block">
-          <div class="shows">
-            <div class="shows-title">Upcoming Shows</div>
-            ${upcomingShows.length === 0
-              ? '<div class="show-line muted">No upcoming shows listed</div>'
-              : upcomingShows.map(show => `<div class="show-line">${esc(show.date)} - ${esc(show.label)}</div>`).join('')}
-          </div>
-          <div class="website">kansascardshow.com</div>
         </div>
       </div>
     </section>
@@ -992,23 +981,20 @@ export function printVendorTableAssignments(
   <style>
     * { box-sizing: border-box; }
     body { margin: 0; background: #f5f5f5; font-family: "Helvetica Neue", Arial, sans-serif; color: #111827; }
-    .print-action { position: fixed; top: 16px; right: 20px; z-index: 20; padding: 8px 16px; background: #111827; color: #fff; border: none; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18); }
+    .action-row { position: fixed; top: 16px; right: 20px; z-index: 20; display: flex; gap: 10px; }
+    .print-action, .download-action { padding: 8px 16px; color: #fff; border: none; border-radius: 999px; cursor: pointer; font-size: 14px; font-weight: 600; box-shadow: 0 12px 28px rgba(15, 23, 42, 0.18); }
+    .print-action { background: #111827; }
+    .download-action { background: #2563eb; }
     .assignment-page { min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 24px; page-break-after: always; }
     .assignment-page:last-child { page-break-after: auto; }
     .sheet { width: 100%; max-width: 850px; min-height: 1040px; border: 2px solid #111827; background: #fff; padding: 40px 44px; display: flex; flex-direction: column; }
     .sheet-head { border-bottom: 1px solid #d1d5db; padding-bottom: 18px; }
     .event-name { font-size: 28px; font-weight: 700; letter-spacing: 0.02em; }
-    .event-date { margin-top: 6px; font-size: 18px; color: #374151; }
     .vendor-block { margin-top: 56px; }
     .label { font-size: 12px; text-transform: uppercase; letter-spacing: 0.18em; color: #6b7280; }
     .vendor-name { margin-top: 10px; font-size: 34px; font-weight: 700; line-height: 1.08; }
     .assignment-block { margin-top: 70px; border: 3px solid #111827; padding: 30px 26px; text-align: center; }
     .assignment-value { margin-top: 16px; font-size: 72px; font-weight: 800; letter-spacing: 0.04em; line-height: 1; }
-    .footer-block { margin-top: auto; padding-top: 48px; border-top: 1px solid #d1d5db; display: flex; justify-content: space-between; gap: 24px; align-items: end; }
-    .shows-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #4b5563; }
-    .show-line { margin-top: 8px; font-size: 18px; }
-    .muted { color: #9ca3af; }
-    .website { font-size: 18px; font-weight: 700; }
     @media print {
       .no-print { display: none !important; }
       @page { margin: 0.45in; }
@@ -1019,7 +1005,24 @@ export function printVendorTableAssignments(
   </style>
 </head>
 <body>
-  <button class="print-action no-print" onclick="window.print()">Print / Save PDF</button>
+  <script>
+    function downloadAssignments() {
+      const markup = '<!DOCTYPE html>\\n' + document.documentElement.outerHTML;
+      const blob = new Blob([markup], { type: 'text/html' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = ${JSON.stringify(filename)};
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    }
+  </script>
+  <div class="action-row no-print">
+    <button class="print-action" onclick="window.print()">Print / Save PDF</button>
+    <button class="download-action" onclick="downloadAssignments()">Download Flyer</button>
+  </div>
   ${pages}
 </body>
 </html>`
@@ -1065,7 +1068,7 @@ function buildSVG(
   const parts: string[] = [
     `<rect width="${pageWidth}" height="${pageHeight}" fill="#ffffff" />`,
     `<text x="${OUTER_PAD}" y="38" font-size="28" font-family="system-ui, sans-serif" font-weight="700" fill="#0f172a">${esc(metadata.eventName)}</text>`,
-    `<text x="${OUTER_PAD}" y="62" font-size="14" font-family="system-ui, sans-serif" fill="#475569">${esc(metadata.venue)} | ${esc(metadata.date)} | Exported ${esc(new Date().toLocaleString())}</text>`,
+    `<text x="${OUTER_PAD}" y="62" font-size="14" font-family="system-ui, sans-serif" fill="#475569">${esc([metadata.venue, metadata.date].filter(Boolean).join(' | '))}</text>`,
     `<text x="${OUTER_PAD}" y="82" font-size="12" font-family="system-ui, sans-serif" fill="#64748b">${esc(options.title || 'Floor Plan')} | ${tables.length} tables | ${Object.keys(assignments).length} assigned</text>`,
   ]
 
@@ -1369,7 +1372,6 @@ function buildPrintHTML(
   <div class="header">
     <div>
       <div class="title">${esc(options.title || 'Floor Plan')}</div>
-      <div class="subtitle">Generated ${new Date().toLocaleDateString()}</div>
     </div>
     <button class="no-print" onclick="window.print()" style="padding:6px 14px;background:#2563eb;color:#fff;border:none;border-radius:6px;cursor:pointer;font-size:14px;">Print / Save PDF</button>
   </div>
