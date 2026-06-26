@@ -922,12 +922,12 @@ function compareAssignedTablesForPrint(
   )
 }
 
-function getUpcomingShowLocations(settings: LayoutSettings): string[] {
+function getUpcomingShows(settings: LayoutSettings): Array<{ date: string; label: string }> {
   return [
-    settings.upcomingShow1Location.trim(),
-    settings.upcomingShow2Location.trim(),
-    settings.upcomingShow3Location.trim(),
-  ].filter(Boolean)
+    { date: settings.upcomingShow1Date.trim(), label: settings.upcomingShow1Location.trim() },
+    { date: settings.upcomingShow2Date.trim(), label: settings.upcomingShow2Location.trim() },
+    { date: settings.upcomingShow3Date.trim(), label: settings.upcomingShow3Location.trim() },
+  ].filter(entry => entry.date || entry.label)
 }
 
 export function printVendorTableAssignments(
@@ -962,7 +962,7 @@ export function printVendorTableAssignments(
   }
 
   const filename = `${slugifyFilename(settings.eventName || 'table-assignments', 'table-assignments')}-vendor-table-assignments.html`
-  const upcomingShows = getUpcomingShowLocations(settings)
+  const upcomingShows = getUpcomingShows(settings)
   const pages = grouped.map(row => `
     <section class="assignment-page">
       <div class="sheet">
@@ -982,7 +982,7 @@ export function printVendorTableAssignments(
             <div class="shows-title">Upcoming Shows</div>
             ${upcomingShows.length === 0
               ? '<div class="show-line muted">No upcoming shows listed</div>'
-              : upcomingShows.map(show => `<div class="show-line">${esc(show)}</div>`).join('')}
+              : upcomingShows.map(show => `<div class="show-line">${esc(show.date)}${show.date && show.label ? ' - ' : ''}${esc(show.label)}</div>`).join('')}
           </div>
         </div>
       </div>
