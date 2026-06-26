@@ -922,6 +922,14 @@ function compareAssignedTablesForPrint(
   )
 }
 
+function getUpcomingShowLocations(settings: LayoutSettings): string[] {
+  return [
+    settings.upcomingShow1Location.trim(),
+    settings.upcomingShow2Location.trim(),
+    settings.upcomingShow3Location.trim(),
+  ].filter(Boolean)
+}
+
 export function printVendorTableAssignments(
   tables: Record<string, TableObject>,
   sections: Record<string, Section>,
@@ -954,6 +962,7 @@ export function printVendorTableAssignments(
   }
 
   const filename = `${slugifyFilename(settings.eventName || 'table-assignments', 'table-assignments')}-vendor-table-assignments.html`
+  const upcomingShows = getUpcomingShowLocations(settings)
   const pages = grouped.map(row => `
     <section class="assignment-page">
       <div class="sheet">
@@ -967,6 +976,14 @@ export function printVendorTableAssignments(
         <div class="assignment-block">
           <div class="label">Table Assignment</div>
           <div class="assignment-value">${esc(compressTableLabels(row.tableLabels))}</div>
+        </div>
+        <div class="footer-block">
+          <div class="shows">
+            <div class="shows-title">Upcoming Shows</div>
+            ${upcomingShows.length === 0
+              ? '<div class="show-line muted">No upcoming shows listed</div>'
+              : upcomingShows.map(show => `<div class="show-line">${esc(show)}</div>`).join('')}
+          </div>
         </div>
       </div>
     </section>
@@ -995,6 +1012,10 @@ export function printVendorTableAssignments(
     .vendor-name { margin-top: 10px; font-size: 34px; font-weight: 700; line-height: 1.08; }
     .assignment-block { margin-top: 70px; border: 3px solid #111827; padding: 30px 26px; text-align: center; }
     .assignment-value { margin-top: 16px; font-size: 72px; font-weight: 800; letter-spacing: 0.04em; line-height: 1; }
+    .footer-block { margin-top: auto; padding-top: 48px; border-top: 1px solid #d1d5db; }
+    .shows-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.14em; color: #4b5563; }
+    .show-line { margin-top: 8px; font-size: 18px; }
+    .muted { color: #9ca3af; }
     @media print {
       .no-print { display: none !important; }
       @page { margin: 0.45in; }
